@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<transition xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- TODO: HIGHER FPS, may require manually transitioning -->
+    <item android:drawable="@drawable/background_normal" />
+    <item android:drawable="@drawable/background_recording" />
+</transition>

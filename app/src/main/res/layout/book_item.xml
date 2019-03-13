@@ -26,9 +26,7 @@
 
         <ImageButton
             android:id="@+id/button"
-            android:layout_width="@dimen/button_height"
-            android:layout_height="@dimen/button_height"
-            android:layout_marginStart="16dp"
+            style="@style/button"
             android:background="@null"
             android:contentDescription="@string/synchronise_status"
             android:src="@drawable/cloud_done" />

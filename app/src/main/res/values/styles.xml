@@ -4,11 +4,17 @@
     <style name="AppTheme" parent="@style/Theme.MaterialComponents.NoActionBar">
         <!-- Customize your theme here. -->
         <item name="colorPrimary">@color/colorPrimary</item>
-        <item name="android:windowBackground">@color/colorPrimary</item>
+        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
         <item name="colorAccent">@color/colorAccent</item>
         <item name="android:statusBarColor">@color/colorPrimaryDark</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+        <item name="android:windowBackground">@drawable/background_fade</item>
         <item name="android:textColorPrimary">@android:color/white</item>
+    </style>
+
+    <style name="button" parent="@style/Theme.MaterialComponents.NoActionBar">
+        <item name="android:layout_width">@dimen/button_size</item>
+        <item name="android:layout_height">@dimen/button_size</item>
+        <item name="android:layout_marginStart">@dimen/button_spacing</item>
     </style>
 </resources>

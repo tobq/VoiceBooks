@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <dimen name="button_height">40dp</dimen>
+    <dimen name="button_size">40dp</dimen>
     <dimen name="border_horizontal">20dp</dimen>
     <dimen name="button_radius">6dp</dimen>
     <dimen name="title_size">24sp</dimen>
+    <dimen name="button_spacing">16dp</dimen>
 </resources>

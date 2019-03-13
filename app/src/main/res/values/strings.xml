@@ -1,4 +1,5 @@
 <resources>
-    <string name="app_name">Voice Books</string>
+    <string name="app_name">VoiceBooks</string>
+    <string name="books_title">Voice Books</string>
     <string name="synchronise_status">synchronise status</string>
 </resources>
