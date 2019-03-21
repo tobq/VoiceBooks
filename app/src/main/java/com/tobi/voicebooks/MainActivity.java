@@ -229,6 +229,18 @@ public class MainActivity extends AppCompatActivity {
         return getResources().getConfiguration().getLocales().get(0);
     }
 
+    /**
+     * Ran on a separate thread.
+     * Implements a bidirectional websocket stream between android device and my own node.js server
+     * - Sends device string locale
+     * - then starts streaming unprocessed audio data
+     * <p>
+     * - server intermittently responds with results from the Google Speech to Text API
+     * - results are processed by {@link APIListener}
+     *
+     * @see APIListener
+     * @see OkHttpClient
+     */
     private void streamToCloud() {
         Request request = new Request.Builder().url("ws://voicebooks.herokuapp.com").build();
         APIListener listener = new APIListener();
