@@ -100,8 +100,7 @@ public class MainActivity extends AppCompatActivity {
                 stopTranscribing();
                 this.setTranscription(results);
             }, this::setTranscription);
-        } catch (Exception e) {
-            // UnsupportedOperationException
+        } catch (UnsupportedOperationException e) {
             TRANSCRIBER_ERROR = Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT);
             TRANSCRIBER_ERROR.show();
         }
