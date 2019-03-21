@@ -250,10 +250,53 @@ public class MainActivity extends AppCompatActivity {
         ws.send(getCurrentLocale().toString());
 
         byte[] data = new byte[MIC_BUFFER_SIZE];
-        while (isRecording) {
+        while (TRANSCRIBING) {
             recorder.read(data, 0, MIC_BUFFER_SIZE);
             ws.send(ByteString.of(data));
         }
         ws.close(APIListener.NORMAL_CLOSURE_STATUS, "Stopped recording");
+    }
+
+    private final class APIListener extends WebSocketListener {
+        public static final int NORMAL_CLOSURE_STATUS = 1000;
+        public static final int JSON_EXCEPTION = 1001;
+        private ArrayList<String> fullResult = new ArrayList<>();
+        private int results = 0;
+        private boolean filled;
+
+        @Override
+        public void onMessage(WebSocket webSocket, String text) {
+            try {
+                JSONObject result = new JSONObject(text).getJSONArray("results").getJSONObject(0);
+                String transcriptText = result.getJSONArray("alternatives").getJSONObject(0).getString("transcript");
+                if (filled) fullResult.set(results, transcriptText);
+                else {
+                    fullResult.add(transcriptText);
+                    filled = true;
+                }
+                String updatedTranscript = String.join(" ", fullResult);
+                runOnUiThread(() -> transcript.setText(updatedTranscript));
+                System.out.println("ISFINAL: " + result.getBoolean("isFinal"));
+                System.out.println("TEXT: " + transcriptText);
+                if (result.getBoolean("isFinal")) {
+                    results++;
+                    filled = false;
+                }
+            } catch (JSONException e) {
+                e.printStackTrace();
+                webSocket.close(JSON_EXCEPTION, "Error parsing API results");
+            }
+        }
+
+        @Override
+        public void onClosing(WebSocket webSocket, int code, String reason) {
+            runOnUiThread(MainActivity.this::stopTranscribing);
+        }
+
+        @Override
+        public void onFailure(WebSocket webSocket, Throwable t, Response response) {
+            runOnUiThread(() -> Toast.makeText(MainActivity.this, "Websocket Error: " + t.getMessage(), Toast.LENGTH_SHORT).show());
+            t.printStackTrace();
+        }
     }
 }
