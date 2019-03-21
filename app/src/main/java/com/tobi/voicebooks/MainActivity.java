@@ -43,6 +43,10 @@ import okio.ByteString;
 
 public class MainActivity extends AppCompatActivity {
     private final static int REQUEST_AUDIO_CODE = 0;
+    private static final int MIC_SAMPLE_RATE = 16000; // Hz
+    private static final int MIC_AUDIO_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
+    private static final int MIC_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
+    private static final int MIC_BUFFER_SIZE = AudioRecord.getMinBufferSize(MIC_SAMPLE_RATE, MIC_AUDIO_CHANNELS, MIC_AUDIO_ENCODING);
     private final int BACKGROUND_FADE_IN_DURATION = 150;
     private final int BACKGROUND_FADE_OUT_DURATION = 75;
     private boolean TRANSCRIBING = false;
