@@ -264,4 +264,20 @@ public class MainActivity extends AppCompatActivity {
         setTranscription(result.get(0));
     }
 
+
+    private void streamToCloud() {
+        Request request = new Request.Builder().url("ws://voicebooks.herokuapp.com").build();
+        APIListener listener = new APIListener();
+        WebSocket ws = client.newWebSocket(request, listener);
+
+        //Send locale
+        ws.send(getCurrentLocale().toString());
+
+        byte[] data = new byte[MIC_BUFFER_SIZE];
+        while (isRecording) {
+            recorder.read(data, 0, MIC_BUFFER_SIZE);
+            ws.send(ByteString.of(data));
+        }
+        ws.close(APIListener.NORMAL_CLOSURE_STATUS, "Stopped recording");
+    }
 }
