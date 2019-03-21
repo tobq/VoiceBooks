@@ -58,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
             // such as noise reduction or gain control reduces recognition accuracy
             .setBufferSizeInBytes(MIC_BUFFER_SIZE)
             .build();
-    private boolean isRecording = false;
     private boolean TRANSCRIBING = false;
     /**
      * Views initial initialised within {@link #onCreate}
@@ -119,9 +118,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void toggleTranscription() {
-//        if (TRANSCRIBING) stopTranscribing();
-//        else startTranscribing();
-        if (isRecording) stopTranscribing();
+        if (TRANSCRIBING) stopTranscribing();
         else startTranscribing();
     }
 
@@ -139,13 +136,6 @@ public class MainActivity extends AppCompatActivity {
      */
     @SuppressWarnings("JavadocReference")
     public void startTranscribing() {
-        if (TRANSCRIBING) return;
-        if (transcriber == null) {
-            TRANSCRIBER_ERROR.show();
-            return;
-        }
-
-        //        if (TRANSCRIBING == TranscriptionState.Running) return;
         transcript.setText(null);
 
         System.out.println("FADE IN");
@@ -153,9 +143,16 @@ public class MainActivity extends AppCompatActivity {
 
         transcriptContainer.setVisibility(View.VISIBLE);
         bookList.setVisibility(View.GONE);
-        TRANSCRIBING = false;
         // Speech recognition started
-        transcriber.start();
+//        transcriber.start();
+
+        //Start recording
+        recorder.startRecording();
+
+        // start streaming
+        new Thread(this::streamToCloud).start();
+
+        TRANSCRIBING = true;
     }
 
     /**
@@ -179,30 +176,6 @@ public class MainActivity extends AppCompatActivity {
         transcriber.stop();
     }
 
-    public void recordAudio(String fileName) throws IOException {
-        assertRecordPermission();
-        ContentValues values = new ContentValues();
-        values.put(MediaStore.MediaColumns.TITLE, fileName);
-        System.out.println(getFilesDir());
-        File output = new File(getFilesDir(), fileName);
-        recorder.setOutputFile(output);
-
-        recorder.prepare();
-        final ProgressDialog mProgressDialog = new ProgressDialog(this);
-        mProgressDialog.setTitle("RECORDING ");
-        mProgressDialog.setProgressStyle(ProgressDialog.STYLE_SPINNER);
-        mProgressDialog.setButton("Stop recording", (dialog, whichButton) -> {
-            mProgressDialog.dismiss();
-            recorder.stop();
-            recorder.release();
-        });
-
-        mProgressDialog.setOnCancelListener(p1 -> {
-            recorder.stop();
-            recorder.release();
-        });
-        recorder.start();
-        mProgressDialog.show();
     }
 
     private boolean assertRecordPermission() {
