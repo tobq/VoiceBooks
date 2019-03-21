@@ -105,7 +105,17 @@ public class MainActivity extends AppCompatActivity {
             TRANSCRIBER_ERROR.show();
         }
 
+
+        // Initialise
+        initialiseTranscription();
+        initHttpClient();
         initialiseBookList();
+    }
+
+    private void initHttpClient() {
+        // WS INIT
+        if (client != null) client.dispatcher().executorService().shutdown();
+        client = new OkHttpClient();
     }
 
     private void toggleTranscription() {
