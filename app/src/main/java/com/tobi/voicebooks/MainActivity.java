@@ -1,16 +1,16 @@
 package com.tobi.voicebooks;
 
 import android.Manifest;
-import android.app.ProgressDialog;
-import android.content.ContentValues;
-import android.content.Intent;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.drawable.TransitionDrawable;
+import android.media.AudioFormat;
+import android.media.AudioManager;
+import android.media.AudioRecord;
 import android.media.MediaRecorder;
+import android.media.audiofx.AcousticEchoCanceler;
 import android.os.Bundle;
-import android.provider.MediaStore;
-import android.speech.RecognizerIntent;
 import android.view.View;
 import android.widget.LinearLayout;
 import android.widget.TextView;
@@ -18,10 +18,14 @@ import android.widget.Toast;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 
-import java.io.File;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.Date;
 import java.util.Locale;
 
@@ -30,6 +34,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
+import okhttp3.WebSocket;
+import okhttp3.WebSocketListener;
+import okio.ByteString;
 
 public class MainActivity extends AppCompatActivity {
     private final static int REQUEST_AUDIO_CODE = 0;
