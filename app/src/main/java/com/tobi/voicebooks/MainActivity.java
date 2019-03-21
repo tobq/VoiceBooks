@@ -1,15 +1,12 @@
 package com.tobi.voicebooks;
 
 import android.Manifest;
-import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.drawable.TransitionDrawable;
 import android.media.AudioFormat;
-import android.media.AudioManager;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
-import android.media.audiofx.AcousticEchoCanceler;
 import android.os.Bundle;
 import android.view.View;
 import android.widget.LinearLayout;
@@ -23,7 +20,6 @@ import org.json.JSONObject;
 
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Date;
 import java.util.Locale;
 
@@ -106,7 +102,7 @@ public class MainActivity extends AppCompatActivity {
 
 
         // Initialise
-        initialiseTranscription();
+        assertRecordPermission();
         initHttpClient();
         initialiseBookList();
     }
@@ -165,17 +161,19 @@ public class MainActivity extends AppCompatActivity {
     private void stopTranscribing() {
         System.out.println("FADE OUT");
         if (TRANSCRIBING)
+            // TODO: TRANSITION FROM 1 TO 0, INSTEAD OF REVERSE (LEADING TO BUG)
             backgroundFade.reverseTransition(BACKGROUND_FADE_OUT_DURATION);
+
         TRANSCRIBING = false;
-        // TODO: TRANSITION FROM 1 TO 0, INSTEAD OF REVERSE (LEADING TO BUG)
 
         // Show bookList again
         transcriptContainer.setVisibility(View.GONE);
         bookList.setVisibility(View.VISIBLE);
 
-        transcriber.stop();
-    }
+//        transcriber.stop();
 
+        // stop recording
+        recorder.stop();
     }
 
     private boolean assertRecordPermission() {
@@ -199,6 +197,7 @@ public class MainActivity extends AppCompatActivity {
         switch (requestCode) {
             case REQUEST_AUDIO_CODE:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    assertRecordPermission();
                 } else REQUIRES_AUDIO_MESSAGE.show();
         }
     }
