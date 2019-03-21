@@ -21,8 +21,6 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.json.JSONException;
 import org.json.JSONObject;
 
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -62,7 +60,6 @@ public class MainActivity extends AppCompatActivity {
             .build();
     private boolean isRecording = false;
     private boolean TRANSCRIBING = false;
-
     /**
      * Views initial initialised within {@link #onCreate}
      */
@@ -73,6 +70,8 @@ public class MainActivity extends AppCompatActivity {
     private Toast REQUIRES_AUDIO_MESSAGE;
     private TransitionDrawable backgroundFade;
     private Transcriber transcriber;
+    private OkHttpClient client;
+    // Variables
 
 
     @Override
@@ -88,10 +87,7 @@ public class MainActivity extends AppCompatActivity {
         backgroundFade = (TransitionDrawable) getWindow().getDecorView().getBackground();
 
         FloatingActionButton recordButton = findViewById(R.id.record);
-        recordButton.setOnClickListener(v -> {
-            if (TRANSCRIBING) stopTranscribing();
-            else startTranscribing();
-        });
+        recordButton.setOnClickListener(v -> toggleTranscription());
 
         // Set spacing from at bottom of bookList to avoid FloatingActionButton hiding bottom details
         Resources resources = getResources();
@@ -111,6 +107,13 @@ public class MainActivity extends AppCompatActivity {
         }
 
         initialiseBookList();
+    }
+
+    private void toggleTranscription() {
+//        if (TRANSCRIBING) stopTranscribing();
+//        else startTranscribing();
+        if (isRecording) stopTranscribing();
+        else startTranscribing();
     }
 
     @Override
