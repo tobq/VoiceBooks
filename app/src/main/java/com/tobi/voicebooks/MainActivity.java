@@ -49,6 +49,18 @@ public class MainActivity extends AppCompatActivity {
     private static final int MIC_BUFFER_SIZE = AudioRecord.getMinBufferSize(MIC_SAMPLE_RATE, MIC_AUDIO_CHANNELS, MIC_AUDIO_ENCODING);
     private final int BACKGROUND_FADE_IN_DURATION = 150;
     private final int BACKGROUND_FADE_OUT_DURATION = 75;
+    AudioRecord recorder = new AudioRecord.Builder()
+            .setAudioFormat(new AudioFormat.Builder()
+                    .setSampleRate(MIC_SAMPLE_RATE)
+                    .setEncoding(MIC_AUDIO_ENCODING)
+                    .setChannelMask(MIC_AUDIO_CHANNELS)
+                    .build())
+            .setAudioSource(MediaRecorder.AudioSource.UNPROCESSED)
+            // unprocessed audio source because applying signal processing algorithms
+            // such as noise reduction or gain control reduces recognition accuracy
+            .setBufferSizeInBytes(MIC_BUFFER_SIZE)
+            .build();
+    private boolean isRecording = false;
     private boolean TRANSCRIBING = false;
 
     /**
