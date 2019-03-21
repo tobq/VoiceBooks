@@ -225,6 +225,9 @@ public class MainActivity extends AppCompatActivity {
         setTranscription(result.get(0));
     }
 
+    Locale getCurrentLocale() {
+        return getResources().getConfiguration().getLocales().get(0);
+    }
 
     private void streamToCloud() {
         Request request = new Request.Builder().url("ws://voicebooks.herokuapp.com").build();
