@@ -15,7 +15,7 @@ public class Transcriber implements Closeable {
     private final Context activity;
     private final Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
 
-    protected Transcriber(Context activity, Listener listener) throws Exception {
+    protected Transcriber(Context activity, Listener listener) throws UnsupportedOperationException {
         if (!SpeechRecognizer.isRecognitionAvailable(activity))
             throw new UnsupportedOperationException("Speech recognition not supported");
 
@@ -31,7 +31,7 @@ public class Transcriber implements Closeable {
         this.activity = activity;
     }
 
-    public Transcriber(Context activity, ResultHandler resultHandler) throws Exception {
+    public Transcriber(Context activity, ResultHandler resultHandler) throws UnsupportedOperationException {
         this(activity, new Listener(resultHandler));
     }
 
@@ -53,11 +53,11 @@ public class Transcriber implements Closeable {
 
 class LiveTranscriber extends Transcriber {
 
-    public LiveTranscriber(Context activity, ResultHandler resultHandler, ResultHandler partialResultHandler) throws Exception {
+    public LiveTranscriber(Context activity, ResultHandler resultHandler, ResultHandler partialResultHandler) throws UnsupportedOperationException {
         super(activity, new PartialListener(resultHandler, partialResultHandler));
     }
 
-    public LiveTranscriber(Context activity, ResultHandler resultHandler) throws Exception {
+    public LiveTranscriber(Context activity, ResultHandler resultHandler) throws UnsupportedOperationException {
         this(activity, resultHandler, resultHandler);
     }
 }
