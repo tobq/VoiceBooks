@@ -45,9 +45,6 @@ public class MainActivity extends AppCompatActivity {
     private final static int REQUEST_AUDIO_CODE = 0;
     private final int BACKGROUND_FADE_IN_DURATION = 150;
     private final int BACKGROUND_FADE_OUT_DURATION = 75;
-    private final int VOICE_REQUEST_CODE = 10;
-
-    private final MediaRecorder recorder = new MediaRecorder();
     private boolean TRANSCRIBING = false;
 
     /**
@@ -196,48 +193,12 @@ public class MainActivity extends AppCompatActivity {
         transcript.setText(transcription);
     }
 
-    public void getSpeechInput() {
-        Intent intent = new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_WEB_SEARCH);
-        intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, Locale.getDefault());
-
-        if (intent.resolveActivity(getPackageManager()) != null) {
-            startActivityForResult(intent, VOICE_REQUEST_CODE);
-        } else {
-            Toast.makeText(this, "Your Device Don't Support Speech Input", Toast.LENGTH_SHORT).show();
-        }
-    }
-
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         switch (requestCode) {
             case REQUEST_AUDIO_CODE:
                 if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    initialiseRecorder();
                 } else REQUIRES_AUDIO_MESSAGE.show();
-        }
-    }
-
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        super.onActivityResult(requestCode, resultCode, data);
-
-        switch (requestCode) {
-            case VOICE_REQUEST_CODE:
-                if (resultCode == RESULT_OK && data != null) {
-                    ArrayList<String> result = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
-                    Toast.makeText(this, result.get(0), Toast.LENGTH_SHORT).show();
-                }
-        }
-    }
-
-    private void initialiseRecorder() {
-        if (assertRecordPermission()) {
-            recorder.setAudioSource(MediaRecorder.AudioSource.MIC);
-            recorder.setOutputFormat(MediaRecorder.OutputFormat.MPEG_4);
-            recorder.setAudioEncoder(MediaRecorder.AudioEncoder.DEFAULT);
-        } else {
-            REQUIRES_AUDIO_MESSAGE.show();
         }
     }
 
