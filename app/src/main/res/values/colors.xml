@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="colorPrimary">#00ACC1</color>
-    <color name="recording">#D81B60</color>
-    <color name="colorPrimaryDark">#50000000</color>
-    <color name="colorAccent">#D81B60</color>
+    <color name="primaryColour">#0BA2C7</color>
+    <color name="recordingColour">#D60044</color>
+    <color name="pauseColour">#740962</color>
+    <color name="darkenColour">#50000000</color>
+    <color name="accentColour">#D81B60</color>
 </resources>

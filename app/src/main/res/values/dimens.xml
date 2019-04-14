@@ -5,4 +5,5 @@
     <dimen name="button_radius">6dp</dimen>
     <dimen name="title_size">24sp</dimen>
     <dimen name="button_spacing">16dp</dimen>
+    <dimen name="title_font_size">36sp</dimen>
 </resources>

@@ -32,14 +32,14 @@
                 android:text="@string/books_title"
                 android:textAllCaps="false"
                 android:textColor="@android:color/white"
-                android:textSize="36sp" />
+                android:textSize="@dimen/title_font_size" />
 
             <ImageButton
                 android:id="@+id/settings_button"
                 style="@style/button"
                 android:background="@null"
-                android:src="@drawable/settings"
-                android:contentDescription="@string/settings" />
+                android:contentDescription="@string/settings"
+                android:src="@drawable/settings" />
         </LinearLayout>
 
         <androidx.recyclerview.widget.RecyclerView
@@ -53,7 +53,7 @@
             android:scrollbars="vertical"
 
             tools:itemCount="10"
-            tools:listitem="@layout/book_item" >
+            tools:listitem="@layout/book_item">
             <!-- TODO: FADING EDGE
 
             android:fadingEdgeLength="30dp"
@@ -69,11 +69,13 @@
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
-        android:paddingEnd="@dimen/border_horizontal"
-        android:orientation="vertical">
+        android:clipToPadding="false"
+        android:orientation="vertical"
+        android:paddingLeft="@dimen/border_horizontal"
+        android:paddingRight="@dimen/border_horizontal">
 
         <com.google.android.material.floatingactionbutton.FloatingActionButton
-            android:id="@+id/record"
+            android:id="@+id/record_resume"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginBottom="@dimen/button_spacing"

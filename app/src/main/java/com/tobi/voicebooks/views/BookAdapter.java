@@ -1,37 +1,62 @@
 package com.tobi.voicebooks.views;
 
-import android.content.Context;
+import android.view.View;
 import android.view.ViewGroup;
 
-import com.tobi.voicebooks.transcription.Book;
+import com.tobi.voicebooks.Repository;
+import com.tobi.voicebooks.db.entities.BookEntity;
+import com.tobi.voicebooks.db.entities.diff.BookDiffer;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.DiffUtil;
 import androidx.recyclerview.widget.RecyclerView;
 
 public class BookAdapter extends RecyclerView.Adapter<BookAdapter.ViewHolder> {
-    private static final String TAG = "com.tobi.voicebooks.views.BookAdapter";
+    private final AppCompatActivity parentActivity;
+    private final Repository repository;
+    /**
+     * Initialised as empty array list to prevent null
+     * pointer exception at {@link #updateBooks}
+     */
+    private List<BookEntity> books = new ArrayList<>();
 
-    private final ArrayList<Book> books;
-    private final Context mContext;
+    public BookAdapter(Repository repository, AppCompatActivity activity) {
+        this.repository = repository;
+        repository.getBooks(this::updateBooks);
+        parentActivity = activity;
+    }
 
-    public BookAdapter(ArrayList<Book> books, Context mContext) {
-        this.books = books;
-        this.mContext = mContext;
+    /**
+     * Callback to observation
+     *
+     * @param newBooks to be displayed
+     * @see Repository#getBooks
+     */
+    public void updateBooks(List<BookEntity> newBooks) {
+        final DiffUtil.DiffResult diffResult = DiffUtil.calculateDiff(new BookDiffer(books, newBooks));
+        books = newBooks;
+        diffResult.dispatchUpdatesTo(this);
     }
 
     @NonNull
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
-        BookView bookView = new BookView(parent.getContext());
+        // new BookView instantiated using parent as context
+        BookView bookView = new BookView(parent.getContext(), repository);
+        // New Holder returned
         return new ViewHolder(bookView);
     }
 
     @Override
     public void onBindViewHolder(@NonNull ViewHolder holder, int i) {
-        Book book = books.get(i);
-        ((BookView) holder.itemView).setBook(book);
+        final BookEntity bookEntity = books.get(i);
+        // i'th book is bound to holder
+        final BookView bookView = holder.getBookView();
+        bookView.setBook(bookEntity);
     }
 
     @Override
@@ -39,14 +64,23 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.ViewHolder> {
         return books.size();
     }
 
-    public void append(Book book) {
-        books.add(book);
-        notifyItemInserted(books.size() - 1);
-    }
+    public static class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
 
-    public class ViewHolder extends RecyclerView.ViewHolder {
-        public ViewHolder(@NonNull BookView itemView) {
-            super(itemView);
+        private final BookView bookView;
+
+        public ViewHolder(@NonNull BookView bookView) {p[.]
+            super(bookView);
+            this.bookView = bookView;
+            bookView.setOnClickListener(this);
+        }
+
+        public BookView getBookView() {
+            return bookView;
+        }
+
+        @Override
+        public void onClick(View v) {
+            System.out.println(getLayoutPosition());
         }
     }
 }

@@ -4,23 +4,18 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 
-import com.tobi.voicebooks.models.FinalResult;
-import com.tobi.voicebooks.models.Result;
-import com.tobi.voicebooks.models.Word;
+import com.tobi.voicebooks.models.Book;
+import com.tobi.voicebooks.models.Transcript;
 
-import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.time.Duration;
-import java.util.Date;
 import java.util.Locale;
 
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import okhttp3.Response;
 import okhttp3.WebSocket;
-import okhttp3.WebSocketListener;
 import okio.ByteString;
 
 
@@ -32,25 +27,25 @@ public class Transcriber implements AutoCloseable {
     private static final OkHttpClient client = new OkHttpClient();
     private static final Request request = new Request.Builder().url("ws://voicebooks.herokuapp.com").build();
 
-    private final Listener listener;
-    private final AudioRecord source;
+    private final AudioRecord audioSource;
     private final Locale locale;
+    private final TranscriberBuilder.Listener listener;
     private WebSocket ws;
-    private Book.Builder builder = new Book.Builder();
-    private boolean transcribing = true;
+    private boolean stopped = false;
+    private long sampleCount = 0;
 
-
-    private Transcriber(AudioRecord source, Listener listener, Locale locale) {
-        this.source = source;
-        this.listener = listener;
+    public Transcriber(Locale locale, AudioRecord audioSource, TranscriberBuilder.Listener listener) {
+        this.audioSource = audioSource;
         this.locale = locale;
 
+        this.listener = listener;
+        ws = client.newWebSocket(request, listener);
+
         //Start recording
-        this.source.startRecording();
-        ws = client.newWebSocket(request, new APIListener());
-        new Thread(this::streamToCloud).start();
+        this.audioSource.startRecording();
 
         //TODO: USE ASYNC TASK
+        new Thread(this::streamToCloud).start();
     }
 
     /**
@@ -72,14 +67,8 @@ public class Transcriber implements AutoCloseable {
                 .build();
     }
 
-    private static Date processAPITime(JSONObject time) throws JSONException {
-        long seconds = Long.parseLong(time.getString("seconds"));
-        long nanos = Long.parseLong(time.getString("nanos"));
-        return new Date(seconds * 1000 + nanos * 1000000);
-    }
-
     /**
-     * Asynchronously closes transcriber.
+     * Asynchronously - safely - closes transcriber.
      * Sets transcribing flag to false, signaling for API
      * streamer to stop
      *
@@ -87,11 +76,11 @@ public class Transcriber implements AutoCloseable {
      * @see #close()
      */
     public void stop() {
-        transcribing = false;
+        stopped = true;
     }
 
     public boolean isTranscribing() {
-        return transcribing;
+        return !stopped;
     }
 
     /**
@@ -101,23 +90,23 @@ public class Transcriber implements AutoCloseable {
      * - then starts streaming unprocessed audio data
      * <p>
      * - server intermittently responds with results from the Google Speech to Text API
-     * - results are processed by {@link APIListener}
+     * - results are processed by {@link TranscriberBuilder.Listener}
      *
-     * @see APIListener
+     * @see TranscriberBuilder.Listener
      * @see OkHttpClient
      */
     private void streamToCloud() {
         //Send locale
         ws.send(locale.toString());
 
-        byte[] data = new byte[MIC_BUFFER_SIZE];
-
-// FileOutputStream fileStream = openFileOutput("test", Context.MODE_PRIVATE)
+        // FileOutputStream fileStream = openFileOutput("test", Context.MODE_PRIVATE)
         try {
-            while (transcribing) {
-                source.read(data, 0, MIC_BUFFER_SIZE);
+            byte[] data = new byte[MIC_BUFFER_SIZE];
+            while (!stopped) {
+                audioSource.read(data, 0, MIC_BUFFER_SIZE);
                 ws.send(ByteString.of(data));
-                listener.onRead(data);
+                sampleCount++;
+//                listener.onRead(data);
             }
 //            fileStream.flush();
         } catch (Exception e) {
@@ -130,121 +119,39 @@ public class Transcriber implements AutoCloseable {
 //        }
         try {
             close();
-            listener.onClose(builder.build());
+            listener.onClose();
         } catch (Exception e) {
             System.out.println("FAILED TO CLOSE TRANSCRIBER AND CREATE TRANSCRIPT");
             listener.onError(e);
         }
-//        if (apiListener.getTranscript().)
     }
 
     @Override
-    public void close() throws Exception {
-        source.release();
-        ws.close(APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
+    public void close() {
+        audioSource.release();
+        ws.close(TranscriberBuilder.Listener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
+    }
+
+    /**
+     * Used to obtain estimate for record time
+     *
+     * @return duration recorded
+     */
+    public Duration getDuration() {
+        return Duration.ofSeconds(sampleCount / MIC_SAMPLE_RATE);
     }
 
     public interface Listener {
-        void onResult(Book book);
+        void onPartial(String partialResult);
+
+        void onUpdate(Transcript transcript);
 
         void onClose(Book book);
 
         void onError(Throwable t);
 
-        default void onRead(byte[] data) {
-        }
+//        default void onRead(byte[] data) {
+//        }
     }
 
-    public static class Builder implements AutoCloseable {
-        private final AudioRecord source;
-        private final Locale locale;
-        private final Listener listener;
-        private Transcriber transcriber;
-
-        public Builder(AudioRecord source, Locale locale, Listener listener) {
-            this.source = source;
-            this.listener = listener;
-            this.locale = locale;
-        }
-
-        public void start() throws Exception {
-            if (transcriber != null) transcriber.close();
-            transcriber = new Transcriber(source, listener, locale);
-        }
-
-        /**
-         * Closes transcriber
-         */
-        public void stop() {
-            if (transcriber != null) transcriber.stop();
-        }
-
-        public boolean isTranscribing() {
-            return transcriber != null && transcriber.isTranscribing();
-        }
-
-        @Override
-        public void close() throws Exception {
-            if (transcriber != null) transcriber.close();
-        }
-
-
-        public Duration getEstimateRecordDuration() {
-            return transcriber.builder.getEstimateRecordDuration();
-        }
-    }
-
-    public final class APIListener extends WebSocketListener {
-        static final int NORMAL_CLOSURE_STATUS = 1000;
-        static final int JSON_EXCEPTION = 1001;
-
-        @Override
-        public void onMessage(WebSocket webSocket, String text) {
-            try {
-                JSONObject result = new JSONObject(text).getJSONArray("results").getJSONObject(0);
-                JSONObject alternative = result.getJSONArray("alternatives").getJSONObject(0);
-                String transcriptText = alternative.getString("transcript");
-
-                // Prematurely return if the result is empty
-                if (transcriptText.isEmpty()) return;
-
-                JSONArray JSONWords = alternative.getJSONArray("words");
-                Result sentence;
-                int wordCount = JSONWords.length();
-                Word[] words = new Word[wordCount];
-                if (result.getBoolean("isFinal")) {
-                    for (int i = 0; i < wordCount; i++) {
-                        JSONObject JSONWord = JSONWords.getJSONObject(i);
-                        Date startTime = processAPITime(JSONWord.getJSONObject("startTime"));
-                        Date endTime = processAPITime(JSONWord.getJSONObject("endTime"));
-                        Word word = new Word(JSONWord.getString("word"), startTime, endTime);
-//                        System.out.println(word);
-                        words[i] = word;
-                    }
-                    sentence = new FinalResult(transcriptText, words);
-                } else {
-                    sentence = new Result(transcriptText);
-                }
-                builder.set(sentence);
-
-//                System.out.println(builder);
-                listener.onResult(builder.build());
-            } catch (JSONException | IllegalArgumentException e) {
-                listener.onError(e);
-                webSocket.close(JSON_EXCEPTION, "Error parsing API results");
-            }
-        }
-
-        @Override
-        public void onClosing(WebSocket webSocket, int code, String reason) {
-            super.onClosing(webSocket, code, reason);
-            stop();
-        }
-
-        @Override
-        public void onFailure(WebSocket webSocket, Throwable t, Response response) {
-            listener.onError(t);
-        }
-
-    }
 }
