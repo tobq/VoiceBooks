@@ -39,7 +39,12 @@ class BookBuilder {
         else Collections.addAll(bookWords, words);
     }
 
-    public Book build(Duration elapsed) {
+    /**
+     * @param elapsed length of corresponding audio recording
+     * @return the build book
+     * @throws IllegalArgumentException when book title is empty
+     */
+    public Book build(Duration elapsed) throws IllegalArgumentException {
         return new Book(buildTranscript(), creation, elapsed);
     }
 
