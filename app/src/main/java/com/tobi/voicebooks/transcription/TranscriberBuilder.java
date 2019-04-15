@@ -37,13 +37,17 @@ public class TranscriberBuilder implements AutoCloseable {
     /**
      * Starts recording with a new transcriber
      *
-     * @throws Exception if previous transcriber fails to close
+     * @throws IllegalStateException if closed
      */
 
-    public void start() throws Exception {
-        if (stopped) throw new IllegalStateException("Can not start a stopped transcriber");
-        if (transcriber != null) transcriber.close();
-        transcriber = new Transcriber(locale, Transcriber.generateMicSource(), new Listener() {
+    public void start() throws IllegalStateException {
+        switch (state) {
+            case CLOSED:
+                throw new IllegalStateException("Can not start a stopped transcriber");
+            case STARTED:
+                return;
+        }
+        transcriber = new Transcriber(locale, Transcriber.generateMicSource(), new APIListener(elapsed) {
             @Override
             protected void onResult(ApiResult apiResult) {
                 bookBuilder.append(apiResult);
@@ -88,36 +92,33 @@ public class TranscriberBuilder implements AutoCloseable {
 
     /**
      * Sends the finally built book to the passed in listener
+     *
+     * @throws IllegalArgumentException when book title is empty
      */
-    private void sendFinalBook() {
+    private void sendFinalBook() throws IllegalArgumentException {
         listener.onClose(bookBuilder.build(elapsed));
     }
 
     /**
      * Fully stops / closes this transcriber asynchronously triggering
-     * the final {@Book} to be generated
+     * the final {@link com.tobi.voicebooks.models.Book} to be generated
      *
-     * @throws NullPointerException when book title is empty
+     * @throws IllegalArgumentException when book title is empty
      * @see #pause()
-     * @see Listener#onClose()
+     * @see APIListener#onClose()
      */
-    public void stop() throws NullPointerException {
-        stopped = true;
-        if (!pause()) sendFinalBook();
+    public void stop() throws IllegalArgumentException {
+        state = State.CLOSED;
+        transcriber.stop();
+        sendFinalBook();
     }
 
     /**
      * Pauses transcription, asynchronously closing current transcriber
      * (if one exists)
-     *
-     * @return whether there was a transcriber
      */
-    public boolean pause() {
-        if (transcriber == null) return false;
-        else {
-            transcriber.stop();
-            return true;
-        }
+    public void pause() {
+        transcriber.stop();
     }
 
     /**
@@ -136,8 +137,13 @@ public class TranscriberBuilder implements AutoCloseable {
      * Listens to results from the API
      * being relayed through a {@link WebSocket}
      */
-    abstract class Listener extends WebSocketListener {
+    abstract static class APIListener extends WebSocketListener {
         static final int NORMAL_CLOSURE_STATUS = 1000;
+        private final Duration startTime;
+
+        protected APIListener(Duration startTime) {
+            this.startTime = startTime;
+        }
 
         @Override
         public void onMessage(WebSocket webSocket, String text) {
