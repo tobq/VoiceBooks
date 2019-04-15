@@ -15,13 +15,19 @@ import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
+enum State {
+    READY,
+    STARTED,
+    CLOSED
+}
+
 public class TranscriberBuilder implements AutoCloseable {
     private final Locale locale;
     private final Transcriber.Listener listener;
     private final BookBuilder bookBuilder = new BookBuilder();
     private Duration elapsed = Duration.ZERO;
     private Transcriber transcriber;
-    private boolean stopped = false;
+    private State state = State.READY;
 
     public TranscriberBuilder(Locale locale, Transcriber.Listener listener) {
         this.listener = listener;
@@ -67,7 +73,7 @@ public class TranscriberBuilder implements AutoCloseable {
                         transcriber = null;
                     }
                 }
-                if (stopped) sendFinalBook();
+                if (state == State.CLOSED) sendFinalBook();
             }
         });
     }
