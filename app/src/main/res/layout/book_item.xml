@@ -4,7 +4,6 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:gravity="end"
-    android:clickable="true"
     android:background="?attr/selectableItemBackground"
     android:orientation="vertical"
     android:padding="@dimen/border_horizontal">
