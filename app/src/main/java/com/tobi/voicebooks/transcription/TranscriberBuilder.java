@@ -180,7 +180,7 @@ public class TranscriberBuilder implements AutoCloseable {
             long seconds = Long.parseLong(time.getString("seconds"));
             long nanos = Long.parseLong(time.getString("nanos"));
 
-            return elapsed.plusSeconds(seconds).plusNanos(nanos);
+            return startTime.plusSeconds(seconds).plusNanos(nanos);
         }
 
         protected abstract void onResult(ApiResult apiResult);
