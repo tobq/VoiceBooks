@@ -1,8 +1,8 @@
 package com.tobi.voicebooks.views;
 
-import android.view.View;
 import android.view.ViewGroup;
 
+import com.tobi.voicebooks.BookActivity;
 import com.tobi.voicebooks.Repository;
 import com.tobi.voicebooks.db.entities.BookEntity;
 import com.tobi.voicebooks.db.entities.diff.BookDiffer;
@@ -26,8 +26,8 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.ViewHolder> {
 
     public BookAdapter(Repository repository, AppCompatActivity activity) {
         this.repository = repository;
-        repository.getBooks(this::updateBooks);
         parentActivity = activity;
+        repository.getBooks(this::updateBooks);
     }
 
     /**
@@ -57,6 +57,7 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.ViewHolder> {
         // i'th book is bound to holder
         final BookView bookView = holder.getBookView();
         bookView.setBook(bookEntity);
+        bookView.setOnClickListener(e -> BookActivity.start(bookEntity, parentActivity));
     }
 
     @Override
@@ -64,23 +65,17 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.ViewHolder> {
         return books.size();
     }
 
-    public static class ViewHolder extends RecyclerView.ViewHolder implements View.OnClickListener {
+    public static class ViewHolder extends RecyclerView.ViewHolder {
 
         private final BookView bookView;
 
-        public ViewHolder(@NonNull BookView bookView) {p[.]
+        public ViewHolder(@NonNull BookView bookView) {
             super(bookView);
             this.bookView = bookView;
-            bookView.setOnClickListener(this);
         }
 
         public BookView getBookView() {
             return bookView;
-        }
-
-        @Override
-        public void onClick(View v) {
-            System.out.println(getLayoutPosition());
         }
     }
 }
