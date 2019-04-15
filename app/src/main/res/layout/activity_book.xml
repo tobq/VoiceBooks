@@ -1,35 +1,55 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-    android:id="@+id/vertical_layout"
+
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/relative_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent"
-    android:orientation="vertical">
+    android:layout_height="match_parent">
 
-    <LinearLayout
+    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/vertical_layout"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="@drawable/gradient"
-        android:gravity="bottom"
-        android:orientation="horizontal"
-        android:paddingLeft="@dimen/border_horizontal"
-        android:paddingTop="40dp"
-        android:paddingRight="@dimen/border_horizontal"
-        android:paddingBottom="@dimen/border_horizontal">
+        android:layout_height="match_parent"
+        android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/book_title"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textAllCaps="false"
-            android:textColor="@android:color/white"
-            android:textSize="@dimen/title_font_size" />
+            android:background="@drawable/gradient"
+            android:gravity="bottom"
+            android:orientation="horizontal"
+            android:paddingLeft="@dimen/border_horizontal"
+            android:paddingTop="40dp"
+            android:paddingRight="@dimen/border_horizontal"
+            android:paddingBottom="@dimen/border_horizontal">
+
+            <TextView
+                android:id="@+id/book_title"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAllCaps="false"
+                android:textColor="@android:color/white"
+                android:textSize="@dimen/title_font_size" />
+        </LinearLayout>
+
+        <com.tobi.voicebooks.views.TranscriptView
+            android:id="@+id/book_content"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1" />
+
     </LinearLayout>
 
-    <com.tobi.voicebooks.views.TranscriptView
-        android:id="@+id/book_content"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1
-" />
-
-</LinearLayout>
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/book_play"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentBottom="true"
+        android:layout_marginEnd="@dimen/border_horizontal"
+        android:layout_marginBottom="@dimen/border_horizontal"
+        android:clickable="true"
+        android:src="@drawable/play"
+        app:backgroundTint="@android:color/white"
+        app:backgroundTintMode="src_over" />
+</RelativeLayout>
