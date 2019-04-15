@@ -19,6 +19,16 @@ public class BookActivity extends AppCompatActivity {
     private Repository repository;
     private TranscriptView content;
 
+    public static void start(BookEntity book, Context packageContext) {
+        start(book.id, packageContext);
+    }
+
+    public static void start(long bookId, Context packageContext) {
+        final Intent intent = new Intent(packageContext, BookActivity.class);
+        intent.putExtra(ID_KEY, bookId);
+        packageContext.startActivity(intent);
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
