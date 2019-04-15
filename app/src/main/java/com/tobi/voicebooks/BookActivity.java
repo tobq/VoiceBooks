@@ -24,10 +24,10 @@ public class BookActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_book);
 
+        // get views
         title = findViewById(R.id.book_title);
         content = findViewById(R.id.book_content);
 
-        long bookId = 0;
 
         // initialise database access
         database = Utils.getDatabase(this);
@@ -35,6 +35,7 @@ public class BookActivity extends AppCompatActivity {
 
         // get book ID from the bundle
         final Bundle extras = getIntent().getExtras();
+        long bookId = extras.getLong(ID_KEY);
 
         // setup title watcher
         repository.getBookTitle(bookId, newTitle -> {
@@ -42,7 +43,7 @@ public class BookActivity extends AppCompatActivity {
             title.setText(collectedTitle);
         });
 
-        bookId = savedInstanceState.getLong("id");
+        // setup content watcher
         repository.getBookContent(bookId, newBookWords -> {
             final String collectedContent = Utils.formatWords(newBookWords);
             content.setPartial(collectedContent);
