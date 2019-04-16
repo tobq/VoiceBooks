@@ -107,9 +107,11 @@ public class TranscriberBuilder implements AutoCloseable {
      * @see #pause()
      * @see APIListener#onClose()
      */
-    public void stop() throws IllegalArgumentException {
+
+    @Override
+    public void close() throws IllegalArgumentException {
+        if (state == State.STARTED) transcriber.stop();
         state = State.CLOSED;
-        transcriber.stop();
         sendFinalBook();
     }
 
@@ -126,11 +128,6 @@ public class TranscriberBuilder implements AutoCloseable {
      */
     public boolean isTranscribing() {
         return transcriber != null && transcriber.isTranscribing();
-    }
-
-    @Override
-    public void close() throws Exception {
-        if (transcriber != null) transcriber.close();
     }
 
     /**

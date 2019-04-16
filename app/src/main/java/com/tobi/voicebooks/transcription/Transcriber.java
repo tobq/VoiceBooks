@@ -1,5 +1,6 @@
 package com.tobi.voicebooks.transcription;
 
+import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
@@ -7,9 +8,8 @@ import android.media.MediaRecorder;
 import com.tobi.voicebooks.models.Book;
 import com.tobi.voicebooks.models.Transcript;
 
-import org.json.JSONException;
-import org.json.JSONObject;
-
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.time.Duration;
 import java.util.Locale;
 
@@ -29,17 +29,22 @@ public class Transcriber implements AutoCloseable {
 
     private final AudioRecord audioSource;
     private final Locale locale;
-    private final TranscriberBuilder.Listener listener;
+    private final TranscriberBuilder.APIListener apiListener;
     private WebSocket ws;
-    private boolean stopped = false;
     private long sampleCount = 0;
 
-    public Transcriber(Locale locale, AudioRecord audioSource, TranscriberBuilder.Listener listener) {
+    /**
+     * Marked as volatile so changes to this field
+     * are respected across threads
+     */
+    private volatile boolean stopped = false;
+
+    public Transcriber(Locale locale, AudioRecord audioSource, TranscriberBuilder.APIListener apiListener) {
         this.audioSource = audioSource;
         this.locale = locale;
+        this.apiListener = apiListener;
 
-        this.listener = listener;
-        ws = client.newWebSocket(request, listener);
+        ws = client.newWebSocket(request, apiListener);
 
         //Start recording
         this.audioSource.startRecording();
@@ -90,46 +95,47 @@ public class Transcriber implements AutoCloseable {
      * - then starts streaming unprocessed audio data
      * <p>
      * - server intermittently responds with results from the Google Speech to Text API
-     * - results are processed by {@link TranscriberBuilder.Listener}
+     * - results are processed by {@link TranscriberBuilder.APIListener}
      *
-     * @see TranscriberBuilder.Listener
+     * @see TranscriberBuilder.APIListener
      * @see OkHttpClient
      */
     private void streamToCloud() {
-        //Send locale
-        ws.send(locale.toString());
+        try (FileOutputStream fileStream = openFileOutput("test", Context.MODE_PRIVATE)) {
+            //Send locale
+            ws.send(locale.toString());
 
-        // FileOutputStream fileStream = openFileOutput("test", Context.MODE_PRIVATE)
-        try {
             byte[] data = new byte[MIC_BUFFER_SIZE];
+
+            // loop *ON THIS THREAD* while transcriber is running
             while (!stopped) {
+                // reads microphone data
                 audioSource.read(data, 0, MIC_BUFFER_SIZE);
+                // and then relays data though my intermediary server,
+                // via a websocket, to the Google Speech API.
                 ws.send(ByteString.of(data));
+
+                // count of samples read incremented
                 sampleCount++;
-//                listener.onRead(data);
+
+                // TODO: apiListener.onRead(data);
             }
-//            fileStream.flush();
+            fileStream.flush();
+            close();
         } catch (Exception e) {
             System.out.println("FAILED TO STREAM PACKET");
-            listener.onError(e);
-        }
-// catch (IOException e) {
-//            System.out.println("FAILED TO STREAM TO FILE");
-//            listener.onError(e);
-//        }
-        try {
-            close();
-            listener.onClose();
-        } catch (Exception e) {
-            System.out.println("FAILED TO CLOSE TRANSCRIBER AND CREATE TRANSCRIPT");
-            listener.onError(e);
+            apiListener.onError(e);
+        } catch (IOException e) {
+            System.out.println("FAILED TO STREAM TO FILE");
+            apiListener.onError(e);
         }
     }
 
     @Override
     public void close() {
         audioSource.release();
-        ws.close(TranscriberBuilder.Listener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
+        ws.close(TranscriberBuilder.APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
+        apiListener.onClose();
     }
 
     /**
