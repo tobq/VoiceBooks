@@ -283,7 +283,7 @@ public class HomeActivity extends AppCompatActivity {
     public void stopTranscription() {
         initHomeView();
         try {
-            transcriber.stop();
+            transcriber.close();
         } catch (NullPointerException e) {
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
         }

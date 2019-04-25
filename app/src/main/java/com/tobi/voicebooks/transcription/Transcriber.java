@@ -84,10 +84,6 @@ public class Transcriber implements AutoCloseable {
         stopped = true;
     }
 
-    public boolean isTranscribing() {
-        return !stopped;
-    }
-
     /**
      * Ran on a separate thread.
      * Implements a bidirectional websocket stream between android device and my own node.js server
@@ -101,7 +97,8 @@ public class Transcriber implements AutoCloseable {
      * @see OkHttpClient
      */
     private void streamToCloud() {
-        try (FileOutputStream fileStream = openFileOutput("test", Context.MODE_PRIVATE)) {
+//        try (FileOutputStream fileStream = openFileOutput("test", Context.MODE_PRIVATE)) {
+        try {
             //Send locale
             ws.send(locale.toString());
 
@@ -120,13 +117,13 @@ public class Transcriber implements AutoCloseable {
 
                 // TODO: apiListener.onRead(data);
             }
-            fileStream.flush();
+//            fileStream.flush();
             close();
+//        } catch (IOException e) {
+//            System.out.println("FAILED TO STREAM TO FILE");
+//            apiListener.onError(e);
         } catch (Exception e) {
             System.out.println("FAILED TO STREAM PACKET");
-            apiListener.onError(e);
-        } catch (IOException e) {
-            System.out.println("FAILED TO STREAM TO FILE");
             apiListener.onError(e);
         }
     }

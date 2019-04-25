@@ -47,6 +47,7 @@ public class TranscriberBuilder implements AutoCloseable {
             case STARTED:
                 return;
         }
+
         transcriber = new Transcriber(locale, Transcriber.generateMicSource(), new APIListener(elapsed) {
             @Override
             protected void onResult(ApiResult apiResult) {
@@ -66,18 +67,20 @@ public class TranscriberBuilder implements AutoCloseable {
 
             @Override
             protected void onClose() {
-                if (transcriber != null) {
-                    synchronized (transcriber) {
+                switch (state) {
+                    case STARTED:
                         elapsed = getElapsed();
                         try {
                             transcriber.close();
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
-                        transcriber = null;
-                    }
+                        state = State.READY;
+                        break;
+
+                    case CLOSED:
+                        sendFinalBook();
                 }
-                if (state == State.CLOSED) sendFinalBook();
             }
         });
     }
@@ -87,7 +90,7 @@ public class TranscriberBuilder implements AutoCloseable {
      */
 
     public Duration getElapsed() {
-        return transcriber == null ? elapsed : elapsed.plus(transcriber.getDuration());
+        return state == State.STARTED ? elapsed.plus(transcriber.getDuration()) : elapsed;
     }
 
     /**
@@ -110,7 +113,7 @@ public class TranscriberBuilder implements AutoCloseable {
 
     @Override
     public void close() throws IllegalArgumentException {
-        if (state == State.STARTED) transcriber.stop();
+        if (state == State.STARTED) pause();
         state = State.CLOSED;
         sendFinalBook();
     }
@@ -121,13 +124,14 @@ public class TranscriberBuilder implements AutoCloseable {
      */
     public void pause() {
         transcriber.stop();
+        state = State.READY;
     }
 
     /**
      * @return where there's a transcriber transcribing
      */
     public boolean isTranscribing() {
-        return transcriber != null && transcriber.isTranscribing();
+        return state == State.STARTED;
     }
 
     /**
