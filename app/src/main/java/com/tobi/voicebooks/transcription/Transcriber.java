@@ -141,7 +141,10 @@ public class Transcriber implements AutoCloseable {
      * @return duration recorded
      */
     public Duration getDuration() {
-        return Duration.ofSeconds(sampleCount / MIC_SAMPLE_RATE);
+        System.out.println(sampleCount);
+        System.out.println(MIC_SAMPLE_RATE);
+        System.out.println(MIC_BUFFER_SIZE);
+        return Duration.ofSeconds(sampleCount *MIC_BUFFER_SIZE/ MIC_SAMPLE_RATE);
     }
 
     public interface Listener {
@@ -152,9 +155,5 @@ public class Transcriber implements AutoCloseable {
         void onClose(Book book);
 
         void onError(Throwable t);
-
-//        default void onRead(byte[] data) {
-//        }
     }
-
 }

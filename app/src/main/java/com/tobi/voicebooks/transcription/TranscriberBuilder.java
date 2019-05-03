@@ -17,7 +17,7 @@ import okhttp3.WebSocketListener;
 
 enum State {
     READY,
-    STARTED,
+    RECORDING,
     CLOSED
 }
 
@@ -44,7 +44,7 @@ public class TranscriberBuilder implements AutoCloseable {
         switch (state) {
             case CLOSED:
                 throw new IllegalStateException("Can not start a stopped transcriber");
-            case STARTED:
+            case RECORDING:
                 return;
         }
 
@@ -68,7 +68,7 @@ public class TranscriberBuilder implements AutoCloseable {
             @Override
             protected void onClose() {
                 switch (state) {
-                    case STARTED:
+                    case RECORDING:
                         elapsed = getElapsed();
                         try {
                             transcriber.close();
@@ -83,6 +83,7 @@ public class TranscriberBuilder implements AutoCloseable {
                 }
             }
         });
+        state = State.RECORDING;
     }
 
     /**
@@ -90,7 +91,8 @@ public class TranscriberBuilder implements AutoCloseable {
      */
 
     public Duration getElapsed() {
-        return state == State.STARTED ? elapsed.plus(transcriber.getDuration()) : elapsed;
+        System.out.println(transcriber.getDuration());
+        return state == State.RECORDING ? elapsed.plus(transcriber.getDuration()) : elapsed;
     }
 
     /**
@@ -99,7 +101,7 @@ public class TranscriberBuilder implements AutoCloseable {
      * @throws IllegalArgumentException when book title is empty
      */
     private void sendFinalBook() throws IllegalArgumentException {
-        listener.onClose(bookBuilder.build(elapsed));
+        listener.onClose(bookBuilder.build(getElapsed()));
     }
 
     /**
@@ -113,7 +115,7 @@ public class TranscriberBuilder implements AutoCloseable {
 
     @Override
     public void close() throws IllegalArgumentException {
-        if (state == State.STARTED) pause();
+        if (state == State.RECORDING) pause();
         state = State.CLOSED;
         sendFinalBook();
     }
@@ -131,7 +133,7 @@ public class TranscriberBuilder implements AutoCloseable {
      * @return where there's a transcriber transcribing
      */
     public boolean isTranscribing() {
-        return state == State.STARTED;
+        return state == State.RECORDING;
     }
 
     /**

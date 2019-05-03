@@ -182,39 +182,34 @@ public class HomeActivity extends AppCompatActivity {
      * closes application if transcriber couldn't be initialised
      */
     private void initialiseTranscriber() {
-        try {
-            if (transcriber != null) transcriber.close();
-            transcriber = new TranscriberBuilder(
-                    Utils.getCurrentLocale(this),
-                    new Transcriber.Listener() {
-                        @Override
-                        public void onPartial(String partialResult) {
-                            runOnUiThread(() -> transcript.setPartial(partialResult));
-                        }
+        transcriber = new TranscriberBuilder(
+                Utils.getCurrentLocale(this),
+                new Transcriber.Listener() {
+                    @Override
+                    public void onPartial(String partialResult) {
+                        runOnUiThread(() -> transcript.setPartial(partialResult));
+                    }
 
-                        @Override
-                        public void onUpdate(Transcript update) {
-                            runOnUiThread(() -> setTranscription(update));
-                        }
+                    @Override
+                    public void onUpdate(Transcript update) {
+                        runOnUiThread(() -> setTranscription(update));
+                    }
 
-                        @Override
-                        public void onClose(Book result) {
-                            // Ran on thread to prevent blocking of UI
-                            new Thread(() -> result.post(database)).start();
-                        }
+                    @Override
+                    public void onClose(Book result) {
+                        // Ran on thread to prevent blocking of UI
+                        new Thread(() -> result.post(database)).start();
+                    }
 
-                        @Override
-                        public void onError(Throwable t) {
-                            t.printStackTrace();
-                            runOnUiThread(() -> {
-                                Toast.makeText(HomeActivity.this, t.getMessage(), Toast.LENGTH_SHORT).show();
-                                pauseTranscription();
-                            });
-                        }
-                    });
-        } catch (Exception e) {
-            finishAndRemoveTask();
-        }
+                    @Override
+                    public void onError(Throwable t) {
+                        t.printStackTrace();
+                        runOnUiThread(() -> {
+                            Toast.makeText(HomeActivity.this, t.getMessage(), Toast.LENGTH_SHORT).show();
+                            pauseTranscription();
+                        });
+                    }
+                });
     }
 
     public void setTranscription(Transcript transcription) {
