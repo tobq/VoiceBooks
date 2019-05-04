@@ -38,7 +38,7 @@ abstract public class Transcriber implements AutoCloseable {
         this.audioSource = audioSource;
         this.locale = locale;
 
-        ws = client.newWebSocket(request, new TranscriberBuilder.APIListener() {
+        ws = client.newWebSocket(request, new BookBuilder.APIListener() {
             @Override
             protected void onResult(String transcriptText, Word[] words) {
                 Transcriber.this.onResult(new ApiResult(transcriptText, words, getDuration()));
@@ -125,9 +125,9 @@ abstract public class Transcriber implements AutoCloseable {
      * - then starts streaming unprocessed audio data
      * <p>
      * - server intermittently responds with results from the Google Speech to Text API
-     * - results are processed by {@link TranscriberBuilder.APIListener}
+     * - results are processed by {@link BookBuilder.APIListener}
      *
-     * @see TranscriberBuilder.APIListener
+     * @see BookBuilder.APIListener
      * @see OkHttpClient
      */
     private void streamToCloud() {
@@ -149,7 +149,7 @@ abstract public class Transcriber implements AutoCloseable {
                 // count of samples read incremented
                 sampleCount++;
 
-                // TODO: apiListener.onRead(data);
+                onRead(data);
             }
 //            fileStream.flush();
             close();
@@ -162,9 +162,15 @@ abstract public class Transcriber implements AutoCloseable {
         }
     }
 
+    /**
+     * @param read microphone input
+     */
+    protected void onRead(byte[] read) {
+    }
+
     @Override
     public void close() {
         audioSource.release();
-        ws.close(TranscriberBuilder.APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
+        ws.close(BookBuilder.APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
     }
 }

@@ -17,7 +17,7 @@ import com.tobi.voicebooks.db.VoiceBooksDatabase;
 import com.tobi.voicebooks.models.Book;
 import com.tobi.voicebooks.models.Transcript;
 import com.tobi.voicebooks.transcription.Transcriber;
-import com.tobi.voicebooks.transcription.TranscriberBuilder;
+import com.tobi.voicebooks.transcription.BookBuilder;
 import com.tobi.voicebooks.views.BookAdapter;
 import com.tobi.voicebooks.views.DurationView;
 import com.tobi.voicebooks.views.TranscriptView;
@@ -44,7 +44,7 @@ public class HomeActivity extends AppCompatActivity {
 
     private Toast REQUIRES_AUDIO_MESSAGE;
 
-    private TranscriberBuilder transcriber;
+    private BookBuilder transcriber;
     private TextView bookTitle;
     private TranscriptView transcript;
 
@@ -182,7 +182,7 @@ public class HomeActivity extends AppCompatActivity {
      * closes application if transcriber couldn't be initialised
      */
     private void initialiseTranscriber() {
-        transcriber = new TranscriberBuilder(Utils.getCurrentLocale(this)) {
+        transcriber = new BookBuilder(Utils.getCurrentLocale(this)) {
             @Override
             public void onPartial(String partialResult) {
                 runOnUiThread(() -> transcript.setPartial(partialResult));
