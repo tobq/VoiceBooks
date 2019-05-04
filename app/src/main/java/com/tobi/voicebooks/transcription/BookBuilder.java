@@ -14,6 +14,7 @@ class BookBuilder {
     private final ArrayList<Word> titleWords = new ArrayList<>();
     private final ArrayList<Word> bookWords = new ArrayList<>();
     private boolean buildingTitle = true;
+    private Duration elapsed = Duration.ZERO;
 
 
     BookBuilder() {
@@ -24,27 +25,19 @@ class BookBuilder {
         this.creation = creation;
     }
 
-    public void append(Word word) {
-        if (buildingTitle) titleWords.add(word);
-        else bookWords.add(word);
-    }
-
     public void append(ApiResult result) {
-        append(result.getWords());
+        Word[] words = result.getWords();
+        if (buildingTitle) Collections.addAll(titleWords, words);
+        else Collections.addAll(bookWords, words);
+        elapsed = elapsed.plus(result.getDuration());
         buildingTitle = false;
     }
 
-    public void append(Word... words) {
-        if (buildingTitle) Collections.addAll(titleWords, words);
-        else Collections.addAll(bookWords, words);
-    }
-
     /**
-     * @param elapsed length of corresponding audio recording
      * @return the build book
      * @throws IllegalArgumentException when book title is empty
      */
-    public Book build(Duration elapsed) throws IllegalArgumentException {
+    public Book build() throws IllegalArgumentException {
         return new Book(buildTranscript(), creation, elapsed);
     }
 

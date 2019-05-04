@@ -12,7 +12,7 @@ import androidx.room.Query;
 
 @Dao
 public interface BookDao {
-    @Query("SELECT * FROM BookEntity")
+    @Query("SELECT * FROM BookEntity ORDER BY creation DESC")
     LiveData<List<BookEntity>> load();
 
     @Insert

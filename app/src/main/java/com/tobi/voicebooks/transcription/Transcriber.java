@@ -1,15 +1,11 @@
 package com.tobi.voicebooks.transcription;
 
-import android.content.Context;
 import android.media.AudioFormat;
 import android.media.AudioRecord;
 import android.media.MediaRecorder;
 
-import com.tobi.voicebooks.models.Book;
-import com.tobi.voicebooks.models.Transcript;
+import com.tobi.voicebooks.models.Word;
 
-import java.io.FileOutputStream;
-import java.io.IOException;
 import java.time.Duration;
 import java.util.Locale;
 
@@ -19,7 +15,7 @@ import okhttp3.WebSocket;
 import okio.ByteString;
 
 
-public class Transcriber implements AutoCloseable {
+abstract public class Transcriber implements AutoCloseable {
     private static final int MIC_SAMPLE_RATE = 16000; // Hz
     private static final int MIC_AUDIO_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int MIC_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
@@ -29,7 +25,6 @@ public class Transcriber implements AutoCloseable {
 
     private final AudioRecord audioSource;
     private final Locale locale;
-    private final TranscriberBuilder.APIListener apiListener;
     private WebSocket ws;
     private long sampleCount = 0;
 
@@ -39,12 +34,31 @@ public class Transcriber implements AutoCloseable {
      */
     private volatile boolean stopped = false;
 
-    public Transcriber(Locale locale, AudioRecord audioSource, TranscriberBuilder.APIListener apiListener) {
+    public Transcriber(Locale locale, AudioRecord audioSource) {
         this.audioSource = audioSource;
         this.locale = locale;
-        this.apiListener = apiListener;
 
-        ws = client.newWebSocket(request, apiListener);
+        ws = client.newWebSocket(request, new TranscriberBuilder.APIListener() {
+            @Override
+            protected void onResult(String transcriptText, Word[] words) {
+                Transcriber.this.onResult(new ApiResult(transcriptText, words, getDuration()));
+            }
+
+            @Override
+            protected void onPartialResult(String transcript) {
+                Transcriber.this.onPartialResult(transcript);
+            }
+
+            @Override
+            public void onError(Throwable error) {
+                Transcriber.this.onError(error);
+            }
+
+            @Override
+            protected void onClosing() {
+                Transcriber.this.onClosing();
+            }
+        });
 
         //Start recording
         this.audioSource.startRecording();
@@ -52,6 +66,26 @@ public class Transcriber implements AutoCloseable {
         //TODO: USE ASYNC TASK
         new Thread(this::streamToCloud).start();
     }
+
+    abstract protected void onResult(ApiResult apiResult);
+
+    /**
+     * Used to obtain estimate for record time
+     *
+     * @return duration recorded
+     */
+    public Duration getDuration() {
+//        System.out.println(sampleCount);
+//        System.out.println(MIC_SAMPLE_RATE);
+//        System.out.println(MIC_BUFFER_SIZE);
+        return Duration.ofSeconds(sampleCount * MIC_BUFFER_SIZE / MIC_SAMPLE_RATE);
+    }
+
+    abstract protected void onPartialResult(String transcript);
+
+    abstract public void onError(Throwable err);
+
+    abstract protected void onClosing();
 
     /**
      * generates microphone audio source based on static final field
@@ -124,7 +158,7 @@ public class Transcriber implements AutoCloseable {
 //            apiListener.onError(e);
         } catch (Exception e) {
             System.out.println("FAILED TO STREAM PACKET");
-            apiListener.onError(e);
+            onError(e);
         }
     }
 
@@ -132,28 +166,5 @@ public class Transcriber implements AutoCloseable {
     public void close() {
         audioSource.release();
         ws.close(TranscriberBuilder.APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
-        apiListener.onClose();
-    }
-
-    /**
-     * Used to obtain estimate for record time
-     *
-     * @return duration recorded
-     */
-    public Duration getDuration() {
-        System.out.println(sampleCount);
-        System.out.println(MIC_SAMPLE_RATE);
-        System.out.println(MIC_BUFFER_SIZE);
-        return Duration.ofSeconds(sampleCount *MIC_BUFFER_SIZE/ MIC_SAMPLE_RATE);
-    }
-
-    public interface Listener {
-        void onPartial(String partialResult);
-
-        void onUpdate(Transcript transcript);
-
-        void onClose(Book book);
-
-        void onError(Throwable t);
     }
 }
