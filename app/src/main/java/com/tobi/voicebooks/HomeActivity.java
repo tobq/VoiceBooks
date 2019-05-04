@@ -3,6 +3,7 @@ package com.tobi.voicebooks;
 import android.Manifest;
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
+import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Color;
@@ -16,12 +17,15 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.tobi.voicebooks.db.VoiceBooksDatabase;
 import com.tobi.voicebooks.models.Book;
 import com.tobi.voicebooks.models.Transcript;
-import com.tobi.voicebooks.transcription.Transcriber;
 import com.tobi.voicebooks.transcription.BookBuilder;
+import com.tobi.voicebooks.transcription.OutputtedBookBuilder;
+import com.tobi.voicebooks.transcription.Transcriber;
 import com.tobi.voicebooks.views.BookAdapter;
 import com.tobi.voicebooks.views.DurationView;
 import com.tobi.voicebooks.views.TranscriptView;
 
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -42,7 +46,8 @@ public class HomeActivity extends AppCompatActivity {
     private final int BACKGROUND_FADE_OUT_DURATION = 75;
     // TODO: FIX FADING OF ENTIRE VIEW
 
-    private Toast REQUIRES_AUDIO_MESSAGE;
+    public Toast FAILED_TO_INITIALISE_TRANSCRIPTION_TOAST;
+    private Toast REQUIRES_AUDIO_TOAST;
 
     private BookBuilder transcriber;
     private TextView bookTitle;
@@ -54,7 +59,6 @@ public class HomeActivity extends AppCompatActivity {
     private Timer durationUpdater;
     private VoiceBooksDatabase database;
     private Repository repository;
-    private FloatingActionButton recordStop;
     private FloatingActionButton recordPause;
     private FloatingActionButton recordResume;
 
@@ -62,7 +66,10 @@ public class HomeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         String APP_NAME = Utils.getAppName(this);
-        REQUIRES_AUDIO_MESSAGE = Toast.makeText(this, APP_NAME + " requires access to your microphone in order to transcribe", Toast.LENGTH_LONG);
+
+        // Initialise reusable toasts
+        REQUIRES_AUDIO_TOAST = Toast.makeText(this, APP_NAME + " requires access to your microphone in order to transcribe", Toast.LENGTH_LONG);
+        FAILED_TO_INITIALISE_TRANSCRIPTION_TOAST = Toast.makeText(this, "Failed to initialise transcription", Toast.LENGTH_SHORT);
 
         decorView = getWindow().getDecorView();
         if (requiresRecordPermission()) requestRecordPermission();
@@ -109,7 +116,7 @@ public class HomeActivity extends AppCompatActivity {
         bookTitle = findViewById(R.id.transcript_title);
         recordDuration = findViewById(R.id.record_duration);
         transcript = findViewById(R.id.transcript);
-        recordStop = findViewById(R.id.record_stop);
+        FloatingActionButton recordStop = findViewById(R.id.record_stop);
         recordPause = findViewById(R.id.record_pause);
         recordResume = findViewById(R.id.record_resume);
 
@@ -172,8 +179,13 @@ public class HomeActivity extends AppCompatActivity {
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         switch (requestCode) {
             case REQUEST_AUDIO_CODE:
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) initialiseTranscriber();
-                else REQUIRES_AUDIO_MESSAGE.show();
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    try {
+                        initialiseTranscriber();
+                    } catch (FileNotFoundException e) {
+                        FAILED_TO_INITIALISE_TRANSCRIPTION_TOAST.show();
+                    }
+                } else REQUIRES_AUDIO_TOAST.show();
 
         }
     }
@@ -181,22 +193,17 @@ public class HomeActivity extends AppCompatActivity {
     /**
      * closes application if transcriber couldn't be initialised
      */
-    private void initialiseTranscriber() {
-        transcriber = new BookBuilder(Utils.getCurrentLocale(this)) {
-            @Override
-            public void onPartial(String partialResult) {
-                runOnUiThread(() -> transcript.setPartial(partialResult));
-            }
-
+    private void initialiseTranscriber() throws FileNotFoundException {
+        final FileOutputStream temp = openFileOutput("test", Context.MODE_PRIVATE);
+        transcriber = new OutputtedBookBuilder(Utils.getCurrentLocale(this), temp) {
             @Override
             public void onUpdate(Transcript update) {
                 runOnUiThread(() -> setTranscription(update));
             }
 
             @Override
-            public void onClose(Book result) {
-                // Ran on thread to prevent blocking of UI
-                new Thread(() -> result.post(database)).start();
+            public void onPartial(String partialResult) {
+                runOnUiThread(() -> transcript.setPartial(partialResult));
             }
 
             @Override
@@ -206,6 +213,12 @@ public class HomeActivity extends AppCompatActivity {
                     Toast.makeText(HomeActivity.this, t.getMessage(), Toast.LENGTH_SHORT).show();
                     pauseTranscription();
                 });
+            }
+
+            @Override
+            public void onClose(Book result) {
+                // Ran on thread to prevent blocking of UI
+                new Thread(() -> result.post(database)).start();
             }
         };
     }
@@ -245,6 +258,12 @@ public class HomeActivity extends AppCompatActivity {
         durationUpdater.purge();
     }
 
+    /**
+     * Transitions background clour
+     *
+     * @param colourCode of colour to transition background colour to
+     * @param duration   of transition
+     */
     void transitionBackground(@ColorInt int colourCode, int duration) {
         if (colourAnimation != null) colourAnimation.cancel();
         colourAnimation = ValueAnimator.ofObject(new ArgbEvaluator(), getBackgroundColour(), colourCode);
@@ -277,7 +296,7 @@ public class HomeActivity extends AppCompatActivity {
         initHomeView();
         try {
             transcriber.close();
-        } catch (NullPointerException e) {
+        } catch (Exception e) {
             Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
         }
 
@@ -308,6 +327,12 @@ public class HomeActivity extends AppCompatActivity {
         booksList.setPadding(0, 0, 0, buttonSize + buttonSpacing * 2);
     }
 
+    /**
+     * overloaded to accept colour object
+     *
+     * @param colour   to transition background colour to
+     * @param duration of transition
+     */
     void transitionBackground(Color colour, int duration) {
         transitionBackground(colour.toArgb(), duration);
     }

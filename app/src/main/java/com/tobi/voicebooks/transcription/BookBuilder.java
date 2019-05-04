@@ -8,6 +8,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -74,6 +75,7 @@ abstract public class BookBuilder implements AutoCloseable {
 
             @Override
             public void onError(Throwable err) {
+                close();
                 BookBuilder.this.onError(err);
             }
 
@@ -95,7 +97,11 @@ abstract public class BookBuilder implements AutoCloseable {
 
             @Override
             protected void onRead(byte[] read) {
-                BookBuilder.this.onRead(read);
+                try {
+                    BookBuilder.this.onRead(read);
+                } catch (IOException e) {
+                    onError(e);
+                }
             }
         });
         state = State.RECORDING;
@@ -119,7 +125,7 @@ abstract public class BookBuilder implements AutoCloseable {
 
     abstract public void onError(Throwable t);
 
-    abstract public void onRead(byte[] read);
+    abstract public void onRead(byte[] read) throws IOException;
 
     /**
      * Fully stops / closes this transcriber asynchronously triggering
@@ -131,7 +137,7 @@ abstract public class BookBuilder implements AutoCloseable {
      */
 
     @Override
-    public void close() throws IllegalArgumentException {
+    public void close() throws Exception {
         if (state == State.RECORDING) pause();
         state = State.CLOSED;
         sendFinalBook();
@@ -158,6 +164,14 @@ abstract public class BookBuilder implements AutoCloseable {
     abstract public void onClose(Book result);
 
     /**
+     * @return the buildBook book
+     * @throws IllegalArgumentException when book title is empty
+     */
+    public Book buildBook() throws IllegalArgumentException {
+        return new Book(buildTranscript(), creation, elapsed);
+    }
+
+    /**
      * @return current summation of elapsed time across all transcriptions
      */
 
@@ -172,14 +186,6 @@ abstract public class BookBuilder implements AutoCloseable {
      */
     public boolean isTranscribing() {
         return state == State.RECORDING;
-    }
-
-    /**
-     * @return the buildBook book
-     * @throws IllegalArgumentException when book title is empty
-     */
-    public Book buildBook() throws IllegalArgumentException {
-        return new Book(buildTranscript(), creation, elapsed);
     }
 
     /**
