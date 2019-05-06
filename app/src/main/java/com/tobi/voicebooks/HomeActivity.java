@@ -3,7 +3,6 @@ package com.tobi.voicebooks;
 import android.Manifest;
 import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
-import android.content.Context;
 import android.content.pm.PackageManager;
 import android.content.res.Resources;
 import android.graphics.Color;
@@ -14,8 +13,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
+import com.tobi.voicebooks.Utils.Utils;
+import com.tobi.voicebooks.db.Repository;
 import com.tobi.voicebooks.db.VoiceBooksDatabase;
-import com.tobi.voicebooks.models.Book;
 import com.tobi.voicebooks.models.Transcript;
 import com.tobi.voicebooks.transcription.BookBuilder;
 import com.tobi.voicebooks.transcription.OutputtedBookBuilder;
@@ -25,7 +25,6 @@ import com.tobi.voicebooks.views.DurationView;
 import com.tobi.voicebooks.views.TranscriptView;
 
 import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -89,12 +88,14 @@ public class HomeActivity extends AppCompatActivity {
         try {
             initTranscriptView();
         } catch (Exception e) {
+            FAILED_TO_INITIALISE_TRANSCRIPTION_TOAST.show();
             e.printStackTrace();
         }
     }
 
     private boolean requiresRecordPermission() {
-        return ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED;
+        return ActivityCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
+                != PackageManager.PERMISSION_GRANTED;
     }
 
     private void requestRecordPermission() {
@@ -194,8 +195,7 @@ public class HomeActivity extends AppCompatActivity {
      * closes application if transcriber couldn't be initialised
      */
     private void initialiseTranscriber() throws FileNotFoundException {
-        final FileOutputStream temp = openFileOutput("test", Context.MODE_PRIVATE);
-        transcriber = new OutputtedBookBuilder(Utils.getCurrentLocale(this), temp) {
+        transcriber = new OutputtedBookBuilder(this, database) {
             @Override
             public void onUpdate(Transcript update) {
                 runOnUiThread(() -> setTranscription(update));
@@ -213,12 +213,6 @@ public class HomeActivity extends AppCompatActivity {
                     Toast.makeText(HomeActivity.this, t.getMessage(), Toast.LENGTH_SHORT).show();
                     pauseTranscription();
                 });
-            }
-
-            @Override
-            public void onClose(Book result) {
-                // Ran on thread to prevent blocking of UI
-                new Thread(() -> result.post(database)).start();
             }
         };
     }
@@ -259,7 +253,7 @@ public class HomeActivity extends AppCompatActivity {
     }
 
     /**
-     * Transitions background clour
+     * Transitions background colour
      *
      * @param colourCode of colour to transition background colour to
      * @param duration   of transition
@@ -303,7 +297,7 @@ public class HomeActivity extends AppCompatActivity {
         // stop updating the record duration counter
         stopDurationUpdater();
 
-        transitionBackground(getResources().getColor(R.color.primaryColour), BACKGROUND_FADE_IN_DURATION);
+        transitionBackground(getResources().getColor(R.color.primaryColour), BACKGROUND_FADE_OUT_DURATION);
     }
 
     private void initHomeView() {

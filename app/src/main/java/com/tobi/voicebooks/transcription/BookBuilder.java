@@ -1,5 +1,9 @@
 package com.tobi.voicebooks.transcription;
 
+import android.app.Activity;
+
+import com.tobi.voicebooks.Utils.AudioUtils;
+import com.tobi.voicebooks.Utils.Utils;
 import com.tobi.voicebooks.models.Book;
 import com.tobi.voicebooks.models.Transcript;
 import com.tobi.voicebooks.models.Word;
@@ -12,7 +16,6 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Locale;
 
 import javax.annotation.Nullable;
@@ -21,27 +24,26 @@ import okhttp3.Response;
 import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
-enum State {
-    READY,
-    RECORDING,
-    CLOSED
-}
 
 abstract public class BookBuilder implements AutoCloseable {
-    private final Locale locale;
-
+    enum State {
+        READY,
+        RECORDING,
+        CLOSED
+    }
     // BOOK BUILDING PARAMS
-    private final Instant creation = Instant.now();
-    private final ArrayList<Word> titleWords = new ArrayList<>();
-    private final ArrayList<Word> bookWords = new ArrayList<>();
-    private boolean buildingTitle = true;
-    private Duration elapsed = Duration.ZERO;
+    protected final Instant creation = Instant.now();
+    protected final ArrayList<ApiResult> apiResults = new ArrayList<>();
 
-
+    private final Locale locale;
     //    private Duration elapsed = Duration.ZERO;
 //    private Transcriber transcriber;
     private State state = State.READY;
     private ArrayList<Transcriber> transcribers = new ArrayList<>();
+
+    public BookBuilder(Activity activity) {
+        this(Utils.getCurrentLocale(activity));
+    }
 
     public BookBuilder(Locale locale) {
         this.locale = locale;
@@ -61,10 +63,10 @@ abstract public class BookBuilder implements AutoCloseable {
                 return;
         }
 
-        transcribers.add(new Transcriber(locale, Transcriber.generateMicSource()) {
+        transcribers.add(new Transcriber(locale, AudioUtils.generateMicSource()) {
             @Override
             protected void onResult(ApiResult apiResult) {
-                appendResult(apiResult);
+                apiResults.add(apiResult);
                 onUpdate(buildTranscript());
             }
 
@@ -80,13 +82,12 @@ abstract public class BookBuilder implements AutoCloseable {
             }
 
             @Override
-            protected void onClosing() {
+            protected void onClosing(TranscriberResult transcriberResult) {
 //                if (state == State.RECORDING) {
                 // TODO: ADVANCED STATE INDEPENDENT OF TRANSCRIBER COUNT
                 // TODO: FIX SIDE-EFFECT: one might close after the next opens
 
 //                    elapsed = getElapsed();
-                close();
                 state = State.READY;
 //                        break;
 //
@@ -96,9 +97,9 @@ abstract public class BookBuilder implements AutoCloseable {
             }
 
             @Override
-            protected void onRead(byte[] read) {
+            protected void onRead(byte[] read, int byteCount) {
                 try {
-                    BookBuilder.this.onRead(read);
+                    BookBuilder.this.onRead(read, byteCount);
                 } catch (IOException e) {
                     onError(e);
                 }
@@ -107,25 +108,40 @@ abstract public class BookBuilder implements AutoCloseable {
         state = State.RECORDING;
     }
 
-    public void appendResult(ApiResult result) {
-        Word[] words = result.getWords();
-        if (buildingTitle) Collections.addAll(titleWords, words);
-        else Collections.addAll(bookWords, words);
-        elapsed = elapsed.plus(result.getDuration());
-        buildingTitle = false;
-    }
-
     abstract public void onUpdate(Transcript update);
 
     public Transcript buildTranscript() {
-        return new Transcript(titleWords.toArray(new Word[0]), bookWords.toArray(new Word[0]));
+        final int apiResultCount = apiResults.size();
+        if (apiResultCount == 0) return new Transcript(new Word[0], new Word[0]);
+        else {
+            final ApiResult titleResult = apiResults.get(0);
+            final Word[] titleWords = titleResult.getWords();
+
+            Duration totalDuration = titleResult.getDuration();
+            final ArrayList<Word> contentWords = new ArrayList<>();
+            for (int i = 1; i < apiResultCount; i++) {
+                ApiResult apiResult = apiResults.get(i);
+
+                for (Word word : apiResult.getWords()) {
+                    Word compensatedWord = new Word(
+                            word.word,
+                            word.startTime.plus(totalDuration),
+                            word.endTime.plus(totalDuration)
+                    );
+                    contentWords.add(compensatedWord);
+                }
+                totalDuration = totalDuration.plus(apiResult.getDuration());
+            }
+
+            return new Transcript(titleWords, contentWords.toArray(new Word[0]));
+        }
     }
 
     abstract public void onPartial(String partialResult);
 
     abstract public void onError(Throwable t);
 
-    abstract public void onRead(byte[] read) throws IOException;
+    abstract public void onRead(byte[] read, int byteCount) throws IOException;
 
     /**
      * Fully stops / closes this transcriber asynchronously triggering
@@ -140,7 +156,7 @@ abstract public class BookBuilder implements AutoCloseable {
     public void close() throws Exception {
         if (state == State.RECORDING) pause();
         state = State.CLOSED;
-        sendFinalBook();
+        onClose(buildBook());
     }
 
     /**
@@ -152,15 +168,6 @@ abstract public class BookBuilder implements AutoCloseable {
         state = State.READY;
     }
 
-    /**
-     * Sends the finally built book to the passed in listener
-     *
-     * @throws IllegalArgumentException when book title is empty
-     */
-    private void sendFinalBook() throws IllegalArgumentException {
-        onClose(buildBook());
-    }
-
     abstract public void onClose(Book result);
 
     /**
@@ -168,7 +175,7 @@ abstract public class BookBuilder implements AutoCloseable {
      * @throws IllegalArgumentException when book title is empty
      */
     public Book buildBook() throws IllegalArgumentException {
-        return new Book(buildTranscript(), creation, elapsed);
+        return new Book(buildTranscript(), creation, getElapsed());
     }
 
     /**
@@ -219,7 +226,7 @@ abstract public class BookBuilder implements AutoCloseable {
                         words[i] = word;
                     }
 
-                    onResult(transcriptText, words);
+                    onResult(new ApiResult(transcriptText, words));
                 } else {
                     onPartialResult(transcriptText);
                 }
@@ -244,7 +251,7 @@ abstract public class BookBuilder implements AutoCloseable {
             return Duration.ofSeconds(seconds).plusNanos(nanos);
         }
 
-        abstract protected void onResult(String transcriptText, Word[] words);
+        abstract protected void onResult(ApiResult result);
 
         protected abstract void onPartialResult(String transcript);
 

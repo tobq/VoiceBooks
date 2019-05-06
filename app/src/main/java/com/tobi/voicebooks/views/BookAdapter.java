@@ -3,7 +3,7 @@ package com.tobi.voicebooks.views;
 import android.view.ViewGroup;
 
 import com.tobi.voicebooks.BookActivity;
-import com.tobi.voicebooks.Repository;
+import com.tobi.voicebooks.db.Repository;
 import com.tobi.voicebooks.db.entities.BookEntity;
 import com.tobi.voicebooks.db.entities.diff.BookDiffer;
 
@@ -46,7 +46,7 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.ViewHolder> {
     @Override
     public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
         // new BookView instantiated using parent as context
-        BookView bookView = new BookView(parent.getContext(), repository);
+        BookView bookView = new BookView(parent.getContext());
         // New Holder returned
         return new ViewHolder(bookView);
     }
@@ -56,8 +56,8 @@ public class BookAdapter extends RecyclerView.Adapter<BookAdapter.ViewHolder> {
         final BookEntity bookEntity = books.get(i);
         // i'th book is bound to holder
         final BookView bookView = holder.getBookView();
-        bookView.setBook(bookEntity);
-        bookView.setOnClickListener(e -> BookActivity.start(bookEntity, parentActivity));
+        bookView.setBook(bookEntity, repository);
+        bookView.setOnClickListener(e -> BookActivity.build(bookEntity, parentActivity));
     }
 
     @Override

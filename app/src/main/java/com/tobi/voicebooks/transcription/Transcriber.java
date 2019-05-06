@@ -2,11 +2,13 @@ package com.tobi.voicebooks.transcription;
 
 import android.media.AudioFormat;
 import android.media.AudioRecord;
-import android.media.MediaRecorder;
 
+import com.tobi.voicebooks.Utils.AudioUtils;
 import com.tobi.voicebooks.models.Word;
 
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Locale;
 
 import okhttp3.OkHttpClient;
@@ -14,25 +16,36 @@ import okhttp3.Request;
 import okhttp3.WebSocket;
 import okio.ByteString;
 
+enum State {
+    TRANSCRIBING,
+    CLOSED
+}
 
 abstract public class Transcriber implements AutoCloseable {
-    private static final int MIC_SAMPLE_RATE = 16000; // Hz
-    private static final int MIC_AUDIO_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
+    public static final int MIC_SAMPLE_RATE = 16000; // Hz
+    public static final int MIC_AUDIO_CHANNELS = AudioFormat.CHANNEL_IN_MONO;
     private static final int MIC_AUDIO_ENCODING = AudioFormat.ENCODING_PCM_16BIT;
-    private static final int MIC_BUFFER_SIZE = AudioRecord.getMinBufferSize(MIC_SAMPLE_RATE, MIC_AUDIO_CHANNELS, MIC_AUDIO_ENCODING);
+    public static final AudioFormat AUDIO_FORMAT = new AudioFormat.Builder()
+            .setSampleRate(MIC_SAMPLE_RATE)
+            .setEncoding(MIC_AUDIO_ENCODING)
+            .setChannelMask(MIC_AUDIO_CHANNELS)
+            .build();
+    public static final int AUDIO_BYTE_RATE = AudioUtils.getByteRate(AUDIO_FORMAT);
+    public static final int MIC_BUFFER_SIZE = AudioRecord.getMinBufferSize(MIC_SAMPLE_RATE, MIC_AUDIO_CHANNELS, MIC_AUDIO_ENCODING);
     private static final OkHttpClient client = new OkHttpClient();
     private static final Request request = new Request.Builder().url("ws://voicebooks.herokuapp.com").build();
 
     private final AudioRecord audioSource;
     private final Locale locale;
     private WebSocket ws;
-    private long sampleCount = 0;
+    private volatile long totalRead = 0;
+    private ArrayList<Word> words = new ArrayList<>();
 
     /**
      * Marked as volatile so changes to this field
      * are respected across threads
      */
-    private volatile boolean stopped = false;
+    private volatile State state = State.TRANSCRIBING;
 
     public Transcriber(Locale locale, AudioRecord audioSource) {
         this.audioSource = audioSource;
@@ -40,8 +53,9 @@ abstract public class Transcriber implements AutoCloseable {
 
         ws = client.newWebSocket(request, new BookBuilder.APIListener() {
             @Override
-            protected void onResult(String transcriptText, Word[] words) {
-                Transcriber.this.onResult(new ApiResult(transcriptText, words, getDuration()));
+            protected void onResult(ApiResult result) {
+                Transcriber.this.onResult(result);
+                Collections.addAll(words, result.getWords());
             }
 
             @Override
@@ -56,7 +70,7 @@ abstract public class Transcriber implements AutoCloseable {
 
             @Override
             protected void onClosing() {
-                Transcriber.this.onClosing();
+                close();
             }
         });
 
@@ -69,41 +83,17 @@ abstract public class Transcriber implements AutoCloseable {
 
     abstract protected void onResult(ApiResult apiResult);
 
-    /**
-     * Used to obtain estimate for record time
-     *
-     * @return duration recorded
-     */
-    public Duration getDuration() {
-//        System.out.println(sampleCount);
-//        System.out.println(MIC_SAMPLE_RATE);
-//        System.out.println(MIC_BUFFER_SIZE);
-        return Duration.ofSeconds(sampleCount * MIC_BUFFER_SIZE / MIC_SAMPLE_RATE);
-    }
-
     abstract protected void onPartialResult(String transcript);
 
     abstract public void onError(Throwable err);
 
-    abstract protected void onClosing();
+    @Override
+    public synchronized void close() {
+        stop();
+        audioSource.release();
+        ws.close(BookBuilder.APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
 
-    /**
-     * generates microphone audio source based on static final field
-     *
-     * @return new microphone AudioRecord
-     */
-    public static AudioRecord generateMicSource() {
-        return new AudioRecord.Builder()
-                .setAudioFormat(new AudioFormat.Builder()
-                        .setSampleRate(MIC_SAMPLE_RATE)
-                        .setEncoding(MIC_AUDIO_ENCODING)
-                        .setChannelMask(MIC_AUDIO_CHANNELS)
-                        .build())
-                .setAudioSource(MediaRecorder.AudioSource.UNPROCESSED)
-                // unprocessed audio source because applying signal processing algorithms
-                // such as noise reduction or gain control reduces recognition accuracy
-                .setBufferSizeInBytes(MIC_BUFFER_SIZE)
-                .build();
+        onClosing(buildTranscriberResult());
     }
 
     /**
@@ -115,11 +105,27 @@ abstract public class Transcriber implements AutoCloseable {
      * @see #close()
      */
     public void stop() {
-        stopped = true;
+        state = State.CLOSED;
+    }
+
+    abstract protected void onClosing(TranscriberResult transcriberResult);
+
+    private TranscriberResult buildTranscriberResult() {
+
+
     }
 
     /**
-     * Ran on a separate thread.
+     * Used to obtain estimate for record time
+     *
+     * @return duration recorded
+     */
+    public Duration getDuration() {
+        return Duration.ofSeconds(totalRead / AUDIO_BYTE_RATE);
+    }
+
+    /**
+     * To be ran on a separate thread.
      * Implements a bidirectional websocket stream between android device and my own node.js server
      * - Sends device string locale
      * - then starts streaming unprocessed audio data
@@ -131,31 +137,26 @@ abstract public class Transcriber implements AutoCloseable {
      * @see OkHttpClient
      */
     private void streamToCloud() {
-//        try (FileOutputStream fileStream = openFileOutput("test", Context.MODE_PRIVATE)) {
         try {
-            //Send locale
+            //Send locale to my web server
             ws.send(locale.toString());
 
             byte[] data = new byte[MIC_BUFFER_SIZE];
 
             // loop *ON THIS THREAD* while transcriber is running
-            while (!stopped) {
+            while (state == State.TRANSCRIBING) {
                 // reads microphone data
-                audioSource.read(data, 0, MIC_BUFFER_SIZE);
+                final int read = audioSource.read(data, 0, MIC_BUFFER_SIZE);
                 // and then relays data though my intermediary server,
                 // via a websocket, to the Google Speech API.
-                ws.send(ByteString.of(data));
+                ws.send(ByteString.of(data, 0, read));
 
                 // count of samples read incremented
-                sampleCount++;
+                totalRead += read;
 
-                onRead(data);
+                onRead(data, read);
             }
-//            fileStream.flush();
             close();
-//        } catch (IOException e) {
-//            System.out.println("FAILED TO STREAM TO FILE");
-//            apiListener.onError(e);
         } catch (Exception e) {
             System.out.println("FAILED TO STREAM PACKET");
             onError(e);
@@ -163,14 +164,8 @@ abstract public class Transcriber implements AutoCloseable {
     }
 
     /**
-     * @param read microphone input
+     * @param read      microphone input
+     * @param byteCount
      */
-    protected void onRead(byte[] read) {
-    }
-
-    @Override
-    public void close() {
-        audioSource.release();
-        ws.close(BookBuilder.APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
-    }
+    abstract protected void onRead(byte[] read, int byteCount);
 }

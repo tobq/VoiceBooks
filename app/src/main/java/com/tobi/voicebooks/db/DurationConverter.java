@@ -1,9 +1,6 @@
 package com.tobi.voicebooks.db;
 
-import com.tobi.voicebooks.views.DurationView;
-
 import java.time.Duration;
-import java.time.Instant;
 
 import androidx.room.TypeConverter;
 

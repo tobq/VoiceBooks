@@ -6,7 +6,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.tobi.voicebooks.R;
-import com.tobi.voicebooks.Utils;
+import com.tobi.voicebooks.Utils.Utils;
 import com.tobi.voicebooks.models.Transcript;
 import com.tobi.voicebooks.models.Word;
 

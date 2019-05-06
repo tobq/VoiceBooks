@@ -1,4 +1,4 @@
-package com.tobi.voicebooks.db;
+package com.tobi.voicebooks.db.daos;
 
 import com.tobi.voicebooks.db.entities.BookWord;
 
@@ -13,6 +13,9 @@ import androidx.room.Query;
 public interface BookWordDao {
     @Query("SELECT * FROM bookword WHERE bookId = :bookId ORDER BY startTime")
     LiveData<List<BookWord>> load(long bookId);
+
+    @Query("SELECT * FROM bookword WHERE bookId = :bookId ORDER BY startTime")
+    BookWord[] get(long bookId);
 
     @Insert
     long[] insert(BookWord... book);

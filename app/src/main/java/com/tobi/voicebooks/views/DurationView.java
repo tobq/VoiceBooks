@@ -3,7 +3,7 @@ package com.tobi.voicebooks.views;
 import android.content.Context;
 import android.util.AttributeSet;
 
-import com.tobi.voicebooks.Utils;
+import com.tobi.voicebooks.Utils.Utils;
 
 import java.time.Duration;
 

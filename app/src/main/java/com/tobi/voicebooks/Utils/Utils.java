@@ -1,23 +1,20 @@
-package com.tobi.voicebooks;
+package com.tobi.voicebooks.Utils;
 
 import android.annotation.SuppressLint;
 import android.content.Context;
 
+import com.tobi.voicebooks.R;
 import com.tobi.voicebooks.db.VoiceBooksDatabase;
 import com.tobi.voicebooks.db.entities.BookWord;
 import com.tobi.voicebooks.models.Word;
 
-import org.json.JSONArray;
-import org.json.JSONException;
-
+import java.io.File;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.StringJoiner;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import androidx.room.Room;
 
@@ -99,7 +96,7 @@ public final class Utils {
                 .build();
     }
 
-    static String getAppName(Context context) {
+    public static String getAppName(Context context) {
         return context.getResources().getString(R.string.app_name);
     }
 
@@ -128,4 +125,7 @@ public final class Utils {
                 .collect(Collectors.joining(" "));
     }
 
+    public static File getBookPath(long bookId, Context context) {
+        return new File(context.getFilesDir(), bookId + ".wav");
+    }
 }

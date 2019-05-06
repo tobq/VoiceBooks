@@ -12,7 +12,7 @@ import java.util.Arrays;
 public class Book {
     private final Instant creation;
     private final Transcript transcript;
-    // bTODO: RESTRICT ACCESS TO TRANSCRIPT
+    // TODO: RESTRICT ACCESS TO TRANSCRIPT
     private final Duration duration;
 
     public Book(Transcript transcript, Instant creation, Duration duration) throws IllegalArgumentException {
@@ -52,9 +52,10 @@ public class Book {
      * Maps {@link Word}s to {@link BookWord}s before inserting
      *
      * @param database voice books database
+     * @return book id
      * @see com.tobi.voicebooks.db.VoiceBooksDatabase
      */
-    public void post(VoiceBooksDatabase database) {
+    public long post(VoiceBooksDatabase database) {
         // Insert and get ID of new book
         final BookEntity bookEntity = new BookEntity(creation, duration);
         final long bookId = database.books().insert(bookEntity);
@@ -69,6 +70,7 @@ public class Book {
 
         database.titleWords().insert(titleWordEntities);
         database.bookWords().insert(bookWordEntities);
+        return bookId;
     }
 
     /**

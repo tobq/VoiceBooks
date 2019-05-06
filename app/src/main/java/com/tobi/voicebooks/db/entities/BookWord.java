@@ -1,11 +1,9 @@
 package com.tobi.voicebooks.db.entities;
 
 import com.tobi.voicebooks.db.DurationConverter;
-import com.tobi.voicebooks.db.InstantConverter;
 import com.tobi.voicebooks.models.Word;
 
 import java.time.Duration;
-import java.time.Instant;
 
 import androidx.annotation.NonNull;
 import androidx.room.Entity;

@@ -1,4 +1,4 @@
-package com.tobi.voicebooks.db;
+package com.tobi.voicebooks.db.daos;
 
 import com.tobi.voicebooks.db.entities.BookEntity;
 

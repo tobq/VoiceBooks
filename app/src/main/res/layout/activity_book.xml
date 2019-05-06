@@ -6,13 +6,14 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:id="@+id/vertical_layout"
+    <LinearLayout
+        android:id="@+id/root_container"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:orientation="vertical">
 
         <LinearLayout
+            android:id="@+id/title_container"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:background="@drawable/gradient"
@@ -21,35 +22,36 @@
             android:paddingLeft="@dimen/border_horizontal"
             android:paddingTop="40dp"
             android:paddingRight="@dimen/border_horizontal"
-            android:paddingBottom="@dimen/border_horizontal">
-
-            <TextView
-                android:id="@+id/book_title"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:textSize="@dimen/title_font_size" />
-        </LinearLayout>
-
-        <com.tobi.voicebooks.views.TranscriptView
-            android:id="@+id/book_content"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1" />
+            android:paddingBottom="@dimen/border_horizontal"/>
 
     </LinearLayout>
 
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/book_play"
+    <RelativeLayout
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_alignParentEnd="true"
         android:layout_alignParentBottom="true"
         android:layout_marginEnd="@dimen/border_horizontal"
         android:layout_marginBottom="@dimen/border_horizontal"
-        android:clickable="true"
-        android:src="@drawable/play"
-        app:backgroundTint="@android:color/white"
-        app:backgroundTintMode="src_over" />
+        android:clipToPadding="false">
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/book_play"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:src="@drawable/play"
+            app:backgroundTint="@android:color/white"
+            app:backgroundTintMode="src_over" />
+
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/book_stop"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:clickable="true"
+            android:src="@drawable/stop"
+            android:visibility="gone"
+            app:backgroundTint="@android:color/white"
+            app:backgroundTintMode="src_over" />
+    </RelativeLayout>
 </RelativeLayout>

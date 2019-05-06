@@ -1,9 +1,8 @@
-package com.tobi.voicebooks;
+package com.tobi.voicebooks.db;
 
-import com.tobi.voicebooks.db.BookDao;
-import com.tobi.voicebooks.db.BookWordDao;
-import com.tobi.voicebooks.db.TitleWordDao;
-import com.tobi.voicebooks.db.VoiceBooksDatabase;
+import com.tobi.voicebooks.db.daos.BookDao;
+import com.tobi.voicebooks.db.daos.BookWordDao;
+import com.tobi.voicebooks.db.daos.TitleWordDao;
 import com.tobi.voicebooks.db.entities.BookEntity;
 import com.tobi.voicebooks.db.entities.BookWord;
 import com.tobi.voicebooks.db.entities.TitleWord;
@@ -52,6 +51,14 @@ public class Repository {
         liveData.observe(activity, observer);
         return () -> liveData.removeObserver(observer);
     }
+
+    public BookWord[] getBookContent(long bookID) {
+        return bookWordsDao.get(bookID);
+    }
+    public BookWord[] getBookTitle(long bookID) {
+        return titleWordsDao.get(bookID);
+    }
+
 
     public ObserverCanceller getBookContent(BookEntity book, Observer<? super List<BookWord>> contentObserver) {
         return getBookContent(book.id, contentObserver);
