@@ -88,7 +88,7 @@ public class BookActivity extends AppCompatActivity {
                 this,
                 Uri.fromFile(Utils.getBookPath(bookId, this))
         );
-        player.setOnCompletionListener(MediaPlayer::release);
+        player.setOnCompletionListener(mediaPlayer -> stop());
         player.start();
 
         // Start playing words along with audio
