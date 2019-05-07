@@ -178,6 +178,7 @@ abstract public class BookBuilder {
 //                transcriberResults.add(transcriberResult);
                 state = State.READY;
                 onStopped();
+                // TODO: refactor transcriber audio / word serialisation, will no longer concatenate together, but be dynamically merged
 //                        break;
 //
 //                    case CLOSED:
