@@ -125,11 +125,11 @@ public final class AudioUtils {
     }
 
     /**
-     * generates microphone audio source based on static final field
+     * generates microphone audio source based on static final fields from Transcriber
      *
      * @return new microphone AudioRecord
      */
-    public static AudioRecord generateMicSource() {
+    public static AudioRecord getMicRecorder() {
         return new AudioRecord.Builder()
                 .setAudioFormat(Transcriber.AUDIO_FORMAT)
                 .setAudioSource(MediaRecorder.AudioSource.UNPROCESSED)

@@ -59,9 +59,8 @@ abstract public class WordPlayer extends RecyclerView {
             super(context);
             setTextSize(TypedValue.COMPLEX_UNIT_PX, textSize);
             final float paddingSize = textSize / 5;
-            System.out.println(paddingSize);
             int paddingHorz = (int) paddingSize;
-            int paddingVert = (int) (paddingSize * 1.3);
+            int paddingVert = (int) paddingSize;
             setPadding(paddingHorz, paddingVert, paddingHorz, paddingVert);
         }
 
@@ -108,36 +107,39 @@ abstract public class WordPlayer extends RecyclerView {
 
         public void play() {
             playProgress = PROGRESS_NOTHING_PLAYING;
-            playThread = new Thread(() -> {
-                Duration lastEnd = Duration.ZERO;
-                try {
-                    for (BookWord word : words) {
-                        // sleep thread for time difference between this words start time and the last
-                        final long quietTime = word.startTime.minus(lastEnd).toMillis();
-                        final long playTime = word.endTime.minus(word.startTime).toMillis();
-                        if (quietTime != 0) {
-                            isQuiet = true;
+            playThread = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    Duration lastEnd = Duration.ZERO;
+                    try {
+                        for (BookWord word : words) {
+                            // sleep thread for time difference between this words start time and the last
+                            final long quietTime = word.startTime.minus(lastEnd).toMillis();
+                            final long playTime = word.endTime.minus(word.startTime).toMillis();
+                            if (quietTime != 0) {
+                                isQuiet = true;
+                                updateWords();
+                                Thread.sleep(quietTime);
+                            }
+                            isQuiet = false;
+                            playProgress++;
                             updateWords();
-                            Thread.sleep(quietTime);
-                        }
-                        isQuiet = false;
-                        playProgress++;
-                        updateWords();
-                        Thread.sleep(playTime);
+                            Thread.sleep(playTime);
 
-                        lastEnd = word.endTime;
+                            lastEnd = word.endTime;
+                        }
+                    } catch (InterruptedException ignored) {
+                    } finally {
+                        playProgress = PROGRESS_NOTHING_PLAYING;
+                        updateWords();
                     }
-                    playProgress = PROGRESS_NOTHING_PLAYING;
-                    updateWords();
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
+                }
+
+                private void updateWords() {
+                    activity.runOnUiThread(() -> notifyDataSetChanged());
                 }
             });
             playThread.start();
-        }
-
-        private void updateWords() {
-            activity.runOnUiThread(this::notifyDataSetChanged);
         }
 
         public void stop() {

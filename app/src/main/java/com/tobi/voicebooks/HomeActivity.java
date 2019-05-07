@@ -16,6 +16,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.tobi.voicebooks.Utils.Utils;
 import com.tobi.voicebooks.db.Repository;
 import com.tobi.voicebooks.db.VoiceBooksDatabase;
+import com.tobi.voicebooks.models.EmptyBookTitleException;
 import com.tobi.voicebooks.models.Transcript;
 import com.tobi.voicebooks.transcription.BookBuilder;
 import com.tobi.voicebooks.transcription.OutputtedBookBuilder;
@@ -48,7 +49,7 @@ public class HomeActivity extends AppCompatActivity {
     public Toast FAILED_TO_INITIALISE_TRANSCRIPTION_TOAST;
     private Toast REQUIRES_AUDIO_TOAST;
 
-    private BookBuilder transcriber;
+    private BookBuilder bookBuilder;
     private TextView bookTitle;
     private TranscriptView transcript;
 
@@ -123,7 +124,7 @@ public class HomeActivity extends AppCompatActivity {
 
         // Setup on click listeners
         recordStop.setOnClickListener(v -> stopTranscription());
-        recordPause.setOnClickListener(v -> pauseTranscription());
+        recordPause.setOnClickListener(v -> bookBuilder.pause());
         recordResume.setOnClickListener(v -> {
             try {
                 startRecording();
@@ -150,7 +151,7 @@ public class HomeActivity extends AppCompatActivity {
         durationUpdater.scheduleAtFixedRate(new TimerTask() {
             @Override
             public void run() {
-                runOnUiThread(() -> recordDuration.setDuration(transcriber.getElapsed()));
+                runOnUiThread(() -> recordDuration.setDuration(bookBuilder.buildDuration()));
             }
         }, 0, 500);
 
@@ -158,7 +159,7 @@ public class HomeActivity extends AppCompatActivity {
         transitionBackground(getResources().getColor(R.color.recordingColour), BACKGROUND_FADE_IN_DURATION);
 
         // Start live transcription
-        transcriber.start();
+        bookBuilder.start();
 
         // setup button visibilities
         recordResume.hide();
@@ -167,7 +168,7 @@ public class HomeActivity extends AppCompatActivity {
 
     @Override
     public void onBackPressed() {
-        if (transcriber.isTranscribing()) {
+        if (bookBuilder.isClosed()) {
             try {
                 stopTranscription();
             } catch (Exception e) {
@@ -191,11 +192,8 @@ public class HomeActivity extends AppCompatActivity {
         }
     }
 
-    /**
-     * closes application if transcriber couldn't be initialised
-     */
     private void initialiseTranscriber() throws FileNotFoundException {
-        transcriber = new OutputtedBookBuilder(this, database) {
+        bookBuilder = new OutputtedBookBuilder(this, database) {
             @Override
             public void onUpdate(Transcript update) {
                 runOnUiThread(() -> setTranscription(update));
@@ -214,6 +212,12 @@ public class HomeActivity extends AppCompatActivity {
                     pauseTranscription();
                 });
             }
+
+            @Override
+            public void onStopped() {
+                System.out.println("STOPPEDD");
+                if (!isClosed()) runOnUiThread(() -> pauseTranscription());
+            }
         };
     }
 
@@ -230,9 +234,6 @@ public class HomeActivity extends AppCompatActivity {
      */
 
     public void pauseTranscription() {
-        // exit if not transcribing
-        if (!transcriber.isTranscribing()) return;
-
         // stop updating the record duration value
         stopDurationUpdater();
 
@@ -240,7 +241,7 @@ public class HomeActivity extends AppCompatActivity {
         transitionBackground(getResources().getColor(R.color.pauseColour), BACKGROUND_FADE_IN_DURATION);
 
         // Start live transcription
-        transcriber.pause();
+        bookBuilder.pause();
 
         // setup button visibilities
         recordPause.hide();
@@ -271,33 +272,54 @@ public class HomeActivity extends AppCompatActivity {
         return decorView.getSolidColor();
     }
 
-    public void setBackgroundColour(@ColorInt int colourCode) {
-        decorView.setBackgroundColor(colourCode);
-    }
-
     public void setBackgroundColour(Color colour) {
         setBackgroundColour(colour.toArgb());
+    }
+
+    public void setBackgroundColour(@ColorInt int colourCode) {
+        decorView.setBackgroundColor(colourCode);
     }
 
     /**
      * Stop transcription
      * Fades background back to {@link R.color#primaryColour}
+     * <p>
+     * The closing of the transcriber is done on a different thread to
+     * stop the blocking of this thread
+     * This also ensures database connections aren't opened on this thread
      *
      * @see Transcriber
      */
 
     public void stopTranscription() {
-        initHomeView();
-        try {
-            transcriber.close();
-        } catch (Exception e) {
-            Toast.makeText(this, e.getMessage(), Toast.LENGTH_SHORT).show();
-        }
+        // Ran on thread to prevent blocking of UI
+        new Thread(() -> {
+            //TODO: FIGURE OUT FIX FOR UNNECESSARY INITIALISATION
+            String resultMessage = null;
 
-        // stop updating the record duration counter
-        stopDurationUpdater();
+            try {
+                bookBuilder.close();
+                resultMessage = "Voice Book saved";
+            } catch (EmptyBookTitleException e) {
+                resultMessage = "Empty Voice Book Discarded";
+            } catch (Throwable e) {
+                resultMessage = "Failed to close transcriber";
+            } finally {
+                String finalResultMessage = resultMessage;
+                runOnUiThread(() -> {
+                    // stop updating the record duration counter
+                    stopDurationUpdater();
 
-        transitionBackground(getResources().getColor(R.color.primaryColour), BACKGROUND_FADE_OUT_DURATION);
+                    initHomeView();
+
+                    // reset background colour
+                    transitionBackground(getResources().getColor(R.color.primaryColour), BACKGROUND_FADE_OUT_DURATION);
+
+                    // show result message
+                    Toast.makeText(this, finalResultMessage, Toast.LENGTH_SHORT).show();
+                });
+            }
+        }).start();
     }
 
     private void initHomeView() {

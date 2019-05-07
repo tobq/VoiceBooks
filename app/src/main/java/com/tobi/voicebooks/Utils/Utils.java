@@ -125,7 +125,7 @@ public final class Utils {
                 .collect(Collectors.joining(" "));
     }
 
-    public static File getBookPath(long bookId, Context context) {
+    public static File getVoiceBookPath(long bookId, Context context) {
         return new File(context.getFilesDir(), bookId + ".wav");
     }
 }

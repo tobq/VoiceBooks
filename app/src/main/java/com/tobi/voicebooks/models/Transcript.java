@@ -4,6 +4,11 @@ import com.tobi.voicebooks.db.entities.BookWord;
 import com.tobi.voicebooks.db.entities.TitleWord;
 
 public class Transcript {
+    /**
+     * Utility empty (IMMUTABLE) transcript
+     */
+    public static final Transcript EMPTY = new Transcript(new Word[0], new Word[0]);
+
     private final Word[] titleWords;
     private final Word[] bookWords;
 
@@ -15,6 +20,7 @@ public class Transcript {
 
     /**
      * Gets the title of this transcript
+     *
      * @return Word array {@link Word}[] ({@link TitleWord}s)
      */
     public Word[] getTitle() {
@@ -24,6 +30,7 @@ public class Transcript {
 
     /**
      * Gets the content of this transcript
+     *
      * @return Word array {@link Word}[] ({@link BookWord}s)
      */
     public Word[] getContent() {

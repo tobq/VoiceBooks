@@ -15,16 +15,17 @@ public class Book {
     // TODO: RESTRICT ACCESS TO TRANSCRIPT
     private final Duration duration;
 
-    public Book(Transcript transcript, Instant creation, Duration duration) throws IllegalArgumentException {
+    public Book(Transcript transcript, Instant creation, Duration duration) throws EmptyBookTitleException {
         this.transcript = transcript;
         if (getTitle().length == 0)
-            throw new NullPointerException("Empty title used for book");
+            throw new EmptyBookTitleException();
         this.creation = creation;
         this.duration = duration;
     }
 
     /**
      * Gets the title of this book from its transcript
+     *
      * @return Word array {@link Word}[] ({@link TitleWord}s)
      */
     public Word[] getTitle() {
@@ -48,7 +49,7 @@ public class Book {
     /**
      * Handles the posting of this book, along with its
      * words to the Room database.
-     *
+     * <p>
      * Maps {@link Word}s to {@link BookWord}s before inserting
      *
      * @param database voice books database

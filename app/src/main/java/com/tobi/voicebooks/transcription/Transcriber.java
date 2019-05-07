@@ -4,11 +4,10 @@ import android.media.AudioFormat;
 import android.media.AudioRecord;
 
 import com.tobi.voicebooks.Utils.AudioUtils;
-import com.tobi.voicebooks.models.Word;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.Locale;
 
 import okhttp3.OkHttpClient;
@@ -18,6 +17,7 @@ import okio.ByteString;
 
 enum State {
     TRANSCRIBING,
+    STOPPING,
     CLOSED
 }
 
@@ -37,10 +37,9 @@ abstract public class Transcriber implements AutoCloseable {
 
     private final AudioRecord audioSource;
     private final Locale locale;
-    private WebSocket ws;
+    private final WebSocket ws;
+    private final ArrayList<ApiResult> apiResults = new ArrayList<>();
     private volatile long totalRead = 0;
-    private ArrayList<Word> words = new ArrayList<>();
-
     /**
      * Marked as volatile so changes to this field
      * are respected across threads
@@ -54,8 +53,8 @@ abstract public class Transcriber implements AutoCloseable {
         ws = client.newWebSocket(request, new BookBuilder.APIListener() {
             @Override
             protected void onResult(ApiResult result) {
+                apiResults.add(result);
                 Transcriber.this.onResult(result);
-                Collections.addAll(words, result.getWords());
             }
 
             @Override
@@ -75,7 +74,7 @@ abstract public class Transcriber implements AutoCloseable {
         });
 
         //Start recording
-        this.audioSource.startRecording();
+        audioSource.startRecording();
 
         //TODO: USE ASYNC TASK
         new Thread(this::streamToCloud).start();
@@ -85,34 +84,16 @@ abstract public class Transcriber implements AutoCloseable {
 
     abstract protected void onPartialResult(String transcript);
 
-    abstract public void onError(Throwable err);
+    abstract protected void onError(Throwable err);
 
     @Override
-    public synchronized void close() {
-        stop();
+    public void close() {
+        // Early exit if already closed to remain idempotent
+        if (state == State.CLOSED) return;
+        state = State.CLOSED;
         audioSource.release();
         ws.close(BookBuilder.APIListener.NORMAL_CLOSURE_STATUS, getClass().getName() + " closed");
-
-        onClosing(buildTranscriberResult());
-    }
-
-    /**
-     * Asynchronously - safely - closes transcriber.
-     * Sets transcribing flag to false, signaling for API
-     * streamer to stop
-     *
-     * @see #streamToCloud()
-     * @see #close()
-     */
-    public void stop() {
-        state = State.CLOSED;
-    }
-
-    abstract protected void onClosing(TranscriberResult transcriberResult);
-
-    private TranscriberResult buildTranscriberResult() {
-
-
+        onClosing();
     }
 
     /**
@@ -122,6 +103,26 @@ abstract public class Transcriber implements AutoCloseable {
      */
     public Duration getDuration() {
         return Duration.ofSeconds(totalRead / AUDIO_BYTE_RATE);
+    }
+
+    abstract protected void onClosing();
+
+    /**
+     * Asynchronously - safely - closes transcriber.
+     * Sets transcribing flag to false, signaling for API
+     * streamer to stop
+     * <p>
+     * {@link #close()} will EVENTUALLY be called
+     *
+     * @see #streamToCloud()
+     * @see #close()
+     */
+    public void stop() {
+        state = State.STOPPING;
+    }
+
+    public ApiResult[] getResults() {
+        return apiResults.toArray(new ApiResult[0]);
     }
 
     /**
@@ -151,15 +152,19 @@ abstract public class Transcriber implements AutoCloseable {
                 // via a websocket, to the Google Speech API.
                 ws.send(ByteString.of(data, 0, read));
 
-                // count of samples read incremented
+                // count of bytes read incremented
+                // used to calculated duration
                 totalRead += read;
 
                 onRead(data, read);
             }
-            close();
         } catch (Exception e) {
-            System.out.println("FAILED TO STREAM PACKET");
+            e.printStackTrace();
             onError(e);
+        } finally {
+            // Close after either transcription stopped or
+            // an error occurred.
+            close();
         }
     }
 
@@ -167,5 +172,5 @@ abstract public class Transcriber implements AutoCloseable {
      * @param read      microphone input
      * @param byteCount
      */
-    abstract protected void onRead(byte[] read, int byteCount);
+    abstract protected void onRead(byte[] read, int byteCount) throws IOException;
 }

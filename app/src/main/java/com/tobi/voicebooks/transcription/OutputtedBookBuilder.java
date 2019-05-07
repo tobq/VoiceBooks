@@ -40,28 +40,18 @@ abstract public class OutputtedBookBuilder extends BookBuilder {
     }
 
     @Override
-    public void close() throws Exception {
+    public Book close() throws Exception {
+        final Book built = super.close();
         tempFileStream.flush();
         tempFileStream.close();
-        super.close();
+
+        // book posted to database
+        final long bookId = built.post(db);
+
+        // encode the temporary PCM data to a wav file.
+        outputFile = Utils.getVoiceBookPath(bookId, context);
+        AudioUtils.PCMToWAV(tempFile, outputFile, Transcriber.AUDIO_FORMAT);
+
+        return built;
     }
-
-    @Override
-    public void onClose(Book result) {
-        // Ran on thread to prevent blocking of UI
-        new Thread(() -> {
-            final long bookId = result.post(db);
-            // tODO: move to close method, so it can prevent sending of book
-            //  even when this onClose method is overriden
-
-            outputFile = Utils.getBookPath(bookId, context);
-            try {
-                AudioUtils.PCMToWAV(tempFile, outputFile, Transcriber.AUDIO_FORMAT);
-            } catch (IOException e) {
-                onError(e);
-            }
-
-        }).start();
-    }
-
 }

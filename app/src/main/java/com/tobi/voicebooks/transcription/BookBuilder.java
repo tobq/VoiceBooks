@@ -16,6 +16,9 @@ import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
 
 import javax.annotation.Nullable;
@@ -25,20 +28,14 @@ import okhttp3.WebSocket;
 import okhttp3.WebSocketListener;
 
 
-abstract public class BookBuilder implements AutoCloseable {
-    enum State {
-        READY,
-        RECORDING,
-        CLOSED
-    }
+abstract public class BookBuilder {
     // BOOK BUILDING PARAMS
     protected final Instant creation = Instant.now();
-    protected final ArrayList<ApiResult> apiResults = new ArrayList<>();
-
     private final Locale locale;
+    //    private final ArrayList<TranscriberResult> transcriberResults = new ArrayList<>();
     //    private Duration elapsed = Duration.ZERO;
 //    private Transcriber transcriber;
-    private State state = State.READY;
+    private volatile State state = State.READY;
     private ArrayList<Transcriber> transcribers = new ArrayList<>();
 
     public BookBuilder(Activity activity) {
@@ -49,24 +46,115 @@ abstract public class BookBuilder implements AutoCloseable {
         this.locale = locale;
     }
 
+    private static Word shiftWord(Word word, Duration shift) {
+        // TODO: INVESTIGATE USING A "DURATION" for WORD object INSTEAD OF "ENDTIME"
+        // TODO: WOULD MAKE SHIFTING ONLY REQUIRE SHIFTING OF THE START TIME
+        return new Word(
+                word.word,
+                word.startTime.plus(shift),
+                word.endTime.plus(shift)
+        );
+    }
+
+    private void actionCheckOpened(String action) {
+        if (state == State.CLOSED)
+            throw new RuntimeException("Can not " + action + " a closed Transcriber");
+    }
+
+    public Transcript buildTranscript() {
+        final int transcriberCount = transcribers.size();
+        if (transcriberCount == 0) return Transcript.EMPTY;
+        else {
+
+//            int i = 0;
+
+            Duration totalDuration = Duration.ZERO;
+
+            Word[] titleWords = new Word[0];
+            // TODO: INVESTIGATE UNNECESSARY INITIALISATION OF TITLE WORDS;
+
+            final ArrayList<Word> contentWords = new ArrayList<>();
+
+            // TODO: don't append empty transcribers so we can trust first transcriber as the title
+            // TODO: would require editing of audio to remove white noise
+            boolean foundTitle = false;
+            int i = 0;
+            for (; i < transcriberCount; i++) {
+                if (foundTitle) break;
+                final Transcriber firstTranscriber = transcribers.get(i);
+                final ApiResult[] results = firstTranscriber.getResults();
+
+                int j = 0;
+                for (; j < results.length; j++) {
+                    final Word[] result = results[j].getWords();
+
+                    if (foundTitle) {
+                        addWords(contentWords, results, totalDuration, j);
+                    } else if (result.length != 0) {
+                        foundTitle = true;
+                        titleWords = shiftWords(result, totalDuration);
+                        i++;
+                    }
+                }
+                totalDuration = totalDuration.plus(firstTranscriber.getDuration());
+            }
+            if (!foundTitle) return Transcript.EMPTY;
+
+
+            for (; i < transcriberCount; i++) {
+                // get current transcriber and increment
+                Transcriber transcriber = transcribers.get(i);
+                // accommodate word timing for previous transcriber durations
+                ApiResult[] results = transcriber.getResults();
+                addWords(contentWords, results, totalDuration, 0);
+                totalDuration = totalDuration.plus(transcriber.getDuration());
+            }
+
+            return new Transcript(titleWords, contentWords.toArray(new Word[0]));
+        }
+    }
+
+    private void addWords(List<Word> wordList, ApiResult[] results, Duration shift, int offset) {
+        for (int j = offset; j < results.length; j++) {
+            ApiResult apiResult = results[j];
+            final Word[] shiftedWords = shiftWords(apiResult.getWords(), shift);
+            Collections.addAll(wordList, shiftedWords);
+        }
+    }
+
+    private Word[] shiftWords(Word[] words, Duration shift) {
+        return Arrays.stream(words)
+                .map(word -> shiftWord(word, shift))
+                .toArray(Word[]::new);
+    }
+
+//    /**
+//     * @return whether there's a transcriber transcribing
+//     */
+//    public boolean isRunning() {
+//        return state == State.RUNNING;
+//    }
+
+    /**
+     * @return whether this builder is closed
+     */
+    public boolean isClosed() {
+        return state == State.CLOSED;
+    }
+
     /**
      * Starts recording with a new transcriber
      *
      * @throws IllegalStateException if closed
      */
-
     public void start() throws IllegalStateException {
-        switch (state) {
-            case CLOSED:
-                throw new IllegalStateException("Can not start a stopped transcriber");
-            case RECORDING:
-                return;
-        }
+        actionCheckOpened("start");
+        if (state == State.RUNNING) return;
 
-        transcribers.add(new Transcriber(locale, AudioUtils.generateMicSource()) {
+
+        transcribers.add(new Transcriber(locale, AudioUtils.getMicRecorder()) {
             @Override
             protected void onResult(ApiResult apiResult) {
-                apiResults.add(apiResult);
                 onUpdate(buildTranscript());
             }
 
@@ -77,18 +165,19 @@ abstract public class BookBuilder implements AutoCloseable {
 
             @Override
             public void onError(Throwable err) {
-                close();
                 BookBuilder.this.onError(err);
             }
 
             @Override
-            protected void onClosing(TranscriberResult transcriberResult) {
-//                if (state == State.RECORDING) {
+            protected void onClosing() {
+//                if (state == State.RUNNING) {
                 // TODO: ADVANCED STATE INDEPENDENT OF TRANSCRIBER COUNT
                 // TODO: FIX SIDE-EFFECT: one might close after the next opens
 
-//                    elapsed = getElapsed();
+//                    elapsed = buildDuration();
+//                transcriberResults.add(transcriberResult);
                 state = State.READY;
+                onStopped();
 //                        break;
 //
 //                    case CLOSED:
@@ -97,66 +186,11 @@ abstract public class BookBuilder implements AutoCloseable {
             }
 
             @Override
-            protected void onRead(byte[] read, int byteCount) {
-                try {
-                    BookBuilder.this.onRead(read, byteCount);
-                } catch (IOException e) {
-                    onError(e);
-                }
+            protected void onRead(byte[] read, int byteCount) throws IOException {
+                BookBuilder.this.onRead(read, byteCount);
             }
         });
-        state = State.RECORDING;
-    }
-
-    abstract public void onUpdate(Transcript update);
-
-    public Transcript buildTranscript() {
-        final int apiResultCount = apiResults.size();
-        if (apiResultCount == 0) return new Transcript(new Word[0], new Word[0]);
-        else {
-            final ApiResult titleResult = apiResults.get(0);
-            final Word[] titleWords = titleResult.getWords();
-
-            Duration totalDuration = titleResult.getDuration();
-            final ArrayList<Word> contentWords = new ArrayList<>();
-            for (int i = 1; i < apiResultCount; i++) {
-                ApiResult apiResult = apiResults.get(i);
-
-                for (Word word : apiResult.getWords()) {
-                    Word compensatedWord = new Word(
-                            word.word,
-                            word.startTime.plus(totalDuration),
-                            word.endTime.plus(totalDuration)
-                    );
-                    contentWords.add(compensatedWord);
-                }
-                totalDuration = totalDuration.plus(apiResult.getDuration());
-            }
-
-            return new Transcript(titleWords, contentWords.toArray(new Word[0]));
-        }
-    }
-
-    abstract public void onPartial(String partialResult);
-
-    abstract public void onError(Throwable t);
-
-    abstract public void onRead(byte[] read, int byteCount) throws IOException;
-
-    /**
-     * Fully stops / closes this transcriber asynchronously triggering
-     * the final {@link com.tobi.voicebooks.models.Book} to be generated
-     *
-     * @throws IllegalArgumentException when book title is empty
-     * @see #pause()
-     * @see APIListener#onClosing()
-     */
-
-    @Override
-    public void close() throws Exception {
-        if (state == State.RECORDING) pause();
-        state = State.CLOSED;
-        onClose(buildBook());
+        state = State.RUNNING;
     }
 
     /**
@@ -164,35 +198,60 @@ abstract public class BookBuilder implements AutoCloseable {
      * (if one exists)
      */
     public void pause() {
+        actionCheckOpened("pause");
+
         transcribers.forEach(Transcriber::stop);
         state = State.READY;
     }
 
-    abstract public void onClose(Book result);
+    /**
+     * Fully stops / closes this transcriber asynchronously triggering
+     * the final {@link com.tobi.voicebooks.models.Book} to be generated
+     *
+     * @return built book
+     * @throws IllegalArgumentException when book title is empty
+     * @see #pause()
+     * @see APIListener#onClosing()
+     */
+    public Book close() throws Exception {
+        actionCheckOpened("close");
+        pause();
+        state = State.CLOSED;
+        return buildBook();
+    }
 
     /**
      * @return the buildBook book
      * @throws IllegalArgumentException when book title is empty
      */
-    public Book buildBook() throws IllegalArgumentException {
-        return new Book(buildTranscript(), creation, getElapsed());
+    private Book buildBook() throws IllegalArgumentException {
+        return new Book(buildTranscript(), creation, buildDuration());
     }
 
     /**
      * @return current summation of elapsed time across all transcriptions
      */
 
-    public Duration getElapsed() {
+    public Duration buildDuration() {
         return transcribers.stream()
                 .map(Transcriber::getDuration)
                 .reduce(Duration.ZERO, Duration::plus);
     }
 
-    /**
-     * @return where there's a transcriber transcribing
-     */
-    public boolean isTranscribing() {
-        return state == State.RECORDING;
+    abstract public void onUpdate(Transcript update);
+
+    abstract public void onPartial(String partialResult);
+
+    abstract public void onError(Throwable t);
+
+    abstract public void onStopped();
+
+    abstract public void onRead(byte[] read, int byteCount) throws IOException;
+
+    enum State {
+        READY,
+        RUNNING,
+        CLOSED
     }
 
     /**
@@ -206,6 +265,22 @@ abstract public class BookBuilder implements AutoCloseable {
 //        protected APIListener(Duration startTime) {
 //            this.startTime = startTime;
 //        }
+
+        /**
+         * Processes the times returned by Google's Voice API
+         * Adjusts the start / end times with the current elapsed time
+         * of the Transcriber Builder
+         *
+         * @param time JSON time
+         * @return duration of word
+         * @throws JSONException if seconds/nanos not found on object
+         */
+        private static Duration processAPITime(JSONObject time) throws JSONException {
+            long seconds = Long.parseLong(time.getString("seconds"));
+            long nanos = Long.parseLong(time.getString("nanos"));
+
+            return Duration.ofSeconds(seconds).plusNanos(nanos);
+        }
 
         @Override
         public void onMessage(WebSocket webSocket, String text) {
@@ -235,26 +310,6 @@ abstract public class BookBuilder implements AutoCloseable {
             }
         }
 
-        /**
-         * Processes the times returned by Google's Voice API
-         * Adjusts the start / end times with the current elapsed time
-         * of the Transcriber Builder
-         *
-         * @param time JSON time
-         * @return duration of word
-         * @throws JSONException if seconds/nanos not found on object
-         */
-        private static Duration processAPITime(JSONObject time) throws JSONException {
-            long seconds = Long.parseLong(time.getString("seconds"));
-            long nanos = Long.parseLong(time.getString("nanos"));
-
-            return Duration.ofSeconds(seconds).plusNanos(nanos);
-        }
-
-        abstract protected void onResult(ApiResult result);
-
-        protected abstract void onPartialResult(String transcript);
-
         @Override
         public void onClosing(WebSocket webSocket, int code, String reason) {
             super.onClosing(webSocket, code, reason);
@@ -269,6 +324,10 @@ abstract public class BookBuilder implements AutoCloseable {
             super.onFailure(webSocket, t, response);
             onError(t);
         }
+
+        abstract protected void onResult(ApiResult result);
+
+        protected abstract void onPartialResult(String transcript);
 
         protected abstract void onError(Throwable error);
 

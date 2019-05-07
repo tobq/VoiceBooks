@@ -86,7 +86,7 @@ public class BookActivity extends AppCompatActivity {
         // Start playing audio saved on disk
         player = MediaPlayer.create(
                 this,
-                Uri.fromFile(Utils.getBookPath(bookId, this))
+                Uri.fromFile(Utils.getVoiceBookPath(bookId, this))
         );
         player.setOnCompletionListener(mediaPlayer -> stop());
         player.start();
